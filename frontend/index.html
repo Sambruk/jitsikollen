@@ -35,6 +35,18 @@
       <a href="test.html" class="btn btn-primary btn-lg">Starta diagnostik</a>
     </div>
 
+    <div class="stats-bar" id="stats-bar" style="display:none;">
+      <div class="stat-item">
+        <span class="stat-number" id="stat-runs">-</span>
+        <span class="stat-label">genomförda tester</span>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-item">
+        <span class="stat-number" id="stat-avg">-</span>
+        <span class="stat-label">medelpoäng</span>
+      </div>
+    </div>
+
     <div class="features">
       <div class="feature-card">
         <div class="icon">&#128269;</div>
@@ -96,6 +108,7 @@
   </footer>
 
   <div class="toast" id="toast"></div>
+  <script src="js/utils.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

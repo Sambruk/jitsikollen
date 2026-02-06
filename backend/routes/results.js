@@ -1,7 +1,21 @@
 const express = require('express');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
-const { insertResult, getResult, getResultsByOrg, getRecentResults } = require('../db/database');
+const { insertResult, getResult, getResultsByOrg, getRecentResults, getStats } = require('../db/database');
+
+// Get stats (total runs + average score)
+router.get('/stats', (req, res) => {
+  try {
+    const row = getStats.get();
+    res.json({
+      totalRuns: row.count,
+      averageScore: row.avg_score !== null ? Math.round(row.avg_score * 10) / 10 : 0
+    });
+  } catch (e) {
+    console.error('Error fetching stats:', e);
+    res.status(500).json({ error: 'Kunde inte hämta statistik' });
+  }
+});
 
 // Save test result
 router.post('/', (req, res) => {

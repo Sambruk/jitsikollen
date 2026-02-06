@@ -26,11 +26,13 @@ const insertResult = db.prepare(`
 const getResult = db.prepare('SELECT * FROM test_results WHERE id = ?');
 const getResultsByOrg = db.prepare('SELECT id, organization, timestamp, total_score, rating FROM test_results WHERE organization = ? ORDER BY timestamp DESC LIMIT 50');
 const getRecentResults = db.prepare('SELECT id, organization, timestamp, total_score, rating FROM test_results ORDER BY timestamp DESC LIMIT 50');
+const getStats = db.prepare('SELECT COUNT(*) as count, AVG(total_score) as avg_score FROM test_results');
 
 module.exports = {
   db,
   insertResult,
   getResult,
   getResultsByOrg,
-  getRecentResults
+  getRecentResults,
+  getStats
 };

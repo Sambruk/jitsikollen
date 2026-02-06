@@ -90,6 +90,22 @@
 - [x] Restart nginx
 - [x] Verify frontend (200), backend health (200), external access (200)
 
+## Statistics on Start Page (v1.6)
+- [x] Add getStats prepared statement to database.js
+- [x] Add GET /stats endpoint to routes/results.js (before /:id)
+- [x] Add stats bar HTML to index.html (between hero and features)
+- [x] Add stats CSS styling to style.css
+- [x] Include utils.js in index.html for apiJSON
+- [x] Add stats fetch logic to app.js
+- [x] Restart backend container
+- [x] Verify /api/results/stats returns JSON (totalRuns: 3, averageScore: 68.3)
+- [x] Verify external access via SSL
+- [x] Show stats in test result card (test.html #test-complete)
+- [x] Fetch stats after diagnostics complete in diagnostics.js
+- [x] Add stats-comparison CSS
+- [x] Re-add POST /results saving after test completes (removed in v1.5)
+- [x] Chain: save result → fetch stats → display (ensures count is current)
+
 ## Notes
 - app.sambruk.se routing via port 443 affected by resty-auto-ssl TLS interception
 - Tool accessible via vibecoder-sambruk2-u917.vm.elestio.app on both /jitsi-test/ (443) and :9443

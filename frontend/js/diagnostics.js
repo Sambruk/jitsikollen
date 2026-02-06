@@ -763,6 +763,31 @@ async function startDiagnostics() {
   // Update progress text
   var text = document.getElementById('progress-text');
   if (text) text.textContent = 'Alla tester klara!';
+
+  // Save result to database, then fetch and show global stats
+  if (typeof apiJSON === 'function') {
+    var orgEl = document.getElementById('org-name');
+    var orgName = orgEl ? orgEl.value.trim() : '';
+    apiJSON('/results', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        organization: orgName || null,
+        totalScore: scoreData.totalScore,
+        rating: scoreData.rating,
+        results: allTestResults
+      })
+    }).then(function() {
+      return apiJSON('/results/stats');
+    }).then(function(data) {
+      var comp = document.getElementById('stats-comparison');
+      if (comp) {
+        document.getElementById('result-stat-runs').textContent = data.totalRuns;
+        document.getElementById('result-stat-avg').textContent = data.averageScore + '/100';
+        comp.style.display = '';
+      }
+    }).catch(function() {});
+  }
 }
 
 // --- Word export ---
