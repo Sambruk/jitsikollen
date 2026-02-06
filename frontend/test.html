@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Diagnostik - Jitsi-kollen</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="header">
+    <div class="header-inner">
+      <div style="display:flex; align-items:center; gap:1rem;">
+        <img src="sambruk%20logga%20utan%20text%20transparent.png" alt="Sambruk" class="header-logo">
+        <div>
+          <h1>Jitsi-kollen</h1>
+          <div class="subtitle">Diagnostik och vitlistning för meet.sambruk.nu</div>
+        </div>
+      </div>
+      <div class="header-date" id="current-date"></div>
+    </div>
+  </header>
+
+  <nav>
+    <div class="nav-inner">
+      <a href="index.html">Start</a>
+      <a href="test.html" class="active">Diagnostik</a>
+      <a href="whitelist.html">Vitlistning</a>
+    </div>
+  </nav>
+
+  <main class="container">
+    <!-- Pre-test setup -->
+    <div id="test-setup">
+      <div class="card">
+        <h2>Starta diagnostik</h2>
+        <p style="color:var(--text-muted); margin-bottom:1rem;">
+          Testet kontrollerar 5 lager av kompatibilitet med Jitsi på meet.sambruk.nu.
+          Det tar ca 30-60 sekunder. Kamera- och mikrofontillgång kan behövas.
+        </p>
+        <div class="org-input">
+          <label for="org-name">Organisation (valfritt):</label>
+          <input type="text" id="org-name" placeholder="T.ex. Sundsvalls kommun">
+        </div>
+        <button class="btn btn-primary btn-lg" id="start-test-btn" onclick="startDiagnostics()">Starta diagnostik</button>
+      </div>
+    </div>
+
+    <!-- Test running -->
+    <div id="test-running" style="display:none;">
+      <div class="card">
+        <h2>Diagnostik pågår...</h2>
+        <div class="test-progress">
+          <div class="progress-bar-container">
+            <div class="progress-bar" id="progress-bar"></div>
+          </div>
+          <div class="progress-text" id="progress-text">Förbereder...</div>
+        </div>
+      </div>
+
+      <!-- Layer 1 -->
+      <div class="card test-layer" id="layer-1">
+        <div class="layer-header" onclick="toggleLayer(1)">
+          <h3>Lager 1: Webbläsare &amp; Enheter (10%)</h3>
+          <div class="layer-status" id="layer-1-status">
+            <span class="dot dot-pending"></span> Väntar
+          </div>
+        </div>
+        <div class="test-items" id="layer-1-items"></div>
+      </div>
+
+      <!-- Layer 2 -->
+      <div class="card test-layer" id="layer-2">
+        <div class="layer-header" onclick="toggleLayer(2)">
+          <h3>Lager 2: Nätverksanslutning (35%)</h3>
+          <div class="layer-status" id="layer-2-status">
+            <span class="dot dot-pending"></span> Väntar
+          </div>
+        </div>
+        <div class="test-items" id="layer-2-items"></div>
+      </div>
+
+      <!-- Layer 3 -->
+      <div class="card test-layer" id="layer-3">
+        <div class="layer-header" onclick="toggleLayer(3)">
+          <h3>Lager 3: WebRTC-anslutning (25%)</h3>
+          <div class="layer-status" id="layer-3-status">
+            <span class="dot dot-pending"></span> Väntar
+          </div>
+        </div>
+        <div class="test-items" id="layer-3-items"></div>
+      </div>
+
+      <!-- Layer 4 -->
+      <div class="card test-layer" id="layer-4">
+        <div class="layer-header" onclick="toggleLayer(4)">
+          <h3>Lager 4: Jitsi-specifikt (20%)</h3>
+          <div class="layer-status" id="layer-4-status">
+            <span class="dot dot-pending"></span> Väntar
+          </div>
+        </div>
+        <div class="test-items" id="layer-4-items"></div>
+      </div>
+
+      <!-- Layer 5 -->
+      <div class="card test-layer" id="layer-5">
+        <div class="layer-header" onclick="toggleLayer(5)">
+          <h3>Lager 5: Kvalitet (10%)</h3>
+          <div class="layer-status" id="layer-5-status">
+            <span class="dot dot-pending"></span> Väntar
+          </div>
+        </div>
+        <div class="test-items" id="layer-5-items"></div>
+      </div>
+    </div>
+
+    <!-- Test complete -->
+    <div id="test-complete" style="display:none;">
+      <div class="card">
+        <div class="score-display" id="score-display"></div>
+      </div>
+      <div class="card" id="recommendations-card" style="display:none;">
+        <h2>Rekommendationer</h2>
+        <div id="recommendations-list"></div>
+      </div>
+      <div style="text-align:center; margin:1.5rem 0; display:flex; flex-wrap:wrap; gap:0.75rem; justify-content:center;">
+        <button class="btn btn-primary" onclick="exportResultWord()">Ladda ner rapport (Word)</button>
+        <button class="btn btn-secondary" onclick="window.print()">Skriv ut / PDF</button>
+        <button class="btn btn-secondary" onclick="location.reload()">Kör testet igen</button>
+        <a href="whitelist.html" class="btn btn-secondary">Visa vitlistning</a>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <p>Jitsi-kollen &mdash; Ett verktyg från Sambruk för meet.sambruk.nu</p>
+  </footer>
+
+  <div class="toast" id="toast"></div>
+  <script src="js/utils.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/scoring.js"></script>
+  <script src="js/diagnostics.js"></script>
+</body>
+</html>

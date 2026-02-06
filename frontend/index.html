@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jitsi-kollen - Diagnostik &amp; Vitlistning</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="header">
+    <div class="header-inner">
+      <div style="display:flex; align-items:center; gap:1rem;">
+        <img src="sambruk%20logga%20utan%20text%20transparent.png" alt="Sambruk" class="header-logo">
+        <div>
+          <h1>Jitsi-kollen</h1>
+          <div class="subtitle">Diagnostik och vitlistning för meet.sambruk.nu</div>
+        </div>
+      </div>
+      <div class="header-date" id="current-date"></div>
+    </div>
+  </header>
+
+  <nav>
+    <div class="nav-inner">
+      <a href="index.html" class="active">Start</a>
+      <a href="test.html">Diagnostik</a>
+      <a href="whitelist.html">Vitlistning</a>
+    </div>
+  </nav>
+
+  <main class="container">
+    <div class="hero">
+      <h2>Fungerar Jitsi i er IT-miljö?</h2>
+      <p>Testa er organisations nätverks- och webbläsarkompatibilitet med Jitsi-videomöten på meet.sambruk.nu. Få en poäng, specifika rekommendationer och brandväggsregler.</p>
+      <a href="test.html" class="btn btn-primary btn-lg">Starta diagnostik</a>
+    </div>
+
+    <div class="features">
+      <div class="feature-card">
+        <div class="icon">&#128269;</div>
+        <h3>5 diagnostiklager</h3>
+        <p>Testar webbläsare, nätverk, WebRTC, Jitsi-specifikt och kvalitet i en komplett genomgång.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">&#127919;</div>
+        <h3>Poäng 0-100</h3>
+        <p>Få en sammanvägd poäng med grön/gul/röd bedömning och specifika rekommendationer på svenska.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">&#128272;</div>
+        <h3>Vitlistnings-hub</h3>
+        <p>Komplett lista över IP-adresser, portar och FQDN som IT-avdelningen behöver öppna. Exportera som CSV eller brandväggsregler.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Hur fungerar det?</h2>
+      <ol style="padding-left:1.5rem; color: var(--text-muted); line-height: 2;">
+        <li><strong>Starta diagnostik</strong> - Klicka på knappen ovan eller gå till Diagnostik-fliken</li>
+        <li><strong>Valfritt: Ange organisation</strong> - För att spara testhistorik</li>
+        <li><strong>Testet körs automatiskt</strong> - Tar ca 30-60 sekunder</li>
+        <li><strong>Se resultat</strong> - Poäng, bedömning och rekommendationer</li>
+        <li><strong>Dela med IT</strong> - Exportera vitlistning och brandväggsregler</li>
+      </ol>
+    </div>
+
+    <div class="card">
+      <h2>Vad testas?</h2>
+      <div class="features" style="margin:1rem 0 0;">
+        <div>
+          <h3 style="color:var(--primary);">Lager 1: Webbläsare</h3>
+          <p style="color:var(--text-muted); font-size:0.9rem;">WebRTC-stöd, kamera/mikrofon, enheter</p>
+        </div>
+        <div>
+          <h3 style="color:var(--primary);">Lager 2: Nätverk</h3>
+          <p style="color:var(--text-muted); font-size:0.9rem;">STUN, TURN (UDP/TLS/TCP), port 443, UDP 10000</p>
+        </div>
+        <div>
+          <h3 style="color:var(--primary);">Lager 3: WebRTC</h3>
+          <p style="color:var(--text-muted); font-size:0.9rem;">ICE-kandidater, peer-anslutning, datakanal</p>
+        </div>
+        <div>
+          <h3 style="color:var(--primary);">Lager 4: Jitsi</h3>
+          <p style="color:var(--text-muted); font-size:0.9rem;">WebSocket-signalering, HTTPS, TCP-fallback</p>
+        </div>
+        <div>
+          <h3 style="color:var(--primary);">Lager 5: Kvalitet</h3>
+          <p style="color:var(--text-muted); font-size:0.9rem;">Bandbredd, latens, jitter</p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <p>Jitsi-kollen &mdash; Ett verktyg från Sambruk för meet.sambruk.nu</p>
+  </footer>
+
+  <div class="toast" id="toast"></div>
+  <script src="js/app.js"></script>
+</body>
+</html>

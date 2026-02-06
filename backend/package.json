@@ -1,0 +1,12 @@
+{
+  "name": "jitsi-diagnostics-backend",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "express": "^4.18.0",
+    "ws": "^8.16.0",
+    "cors": "^2.8.5",
+    "better-sqlite3": "^11.0.0",
+    "uuid": "^9.0.0"
+  }
+}

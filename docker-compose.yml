@@ -1,0 +1,29 @@
+services:
+  frontend:
+    image: nginx:alpine
+    restart: always
+    ports:
+      - "172.17.0.1:13011:80"
+    volumes:
+      - /opt/app/jitsi-diagnostics/frontend:/usr/share/nginx/html
+      - /opt/app/jitsi-diagnostics/frontend/css:/usr/share/nginx/html/css
+      - /opt/app/jitsi-diagnostics/frontend/js:/usr/share/nginx/html/js
+
+  backend:
+    image: node:18-bullseye-slim
+    restart: always
+    ports:
+      - "172.17.0.1:13012:3000"
+    volumes:
+      - /opt/app/jitsi-diagnostics/backend:/app
+      - /opt/app/jitsi-diagnostics/db:/app/db-data
+    working_dir: /app
+    command: sh -c "npm install --production && node server.js"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DB_PATH=/app/db-data/diagnostics.sqlite
+      - JITSI_DOMAIN=meet.sambruk.nu
+      - TURN_HOST=meet.sambruk.nu
+      - TURN_PORT=3478
+      - TURNS_PORT=5349

@@ -1,0 +1,73 @@
+{
+  "version": "1.0.0",
+  "lastUpdated": "2026-02-05",
+  "description": "Vitlista för Sambruks Jitsi-infrastruktur (meet.sambruk.nu)",
+  "servers": {
+    "signaling": [
+      {
+        "fqdn": "meet.sambruk.nu",
+        "ports": [443],
+        "protocol": "TCP/TLS",
+        "required": true,
+        "description": "Jitsi signalering (HTTPS + WebSocket)"
+      }
+    ],
+    "media": [
+      {
+        "fqdn": "meet.sambruk.nu",
+        "ports": [10000],
+        "protocol": "UDP",
+        "required": true,
+        "description": "Jitsi Videobridge mediaport"
+      },
+      {
+        "fqdn": "meet.sambruk.nu",
+        "ports": [4443],
+        "protocol": "TCP",
+        "required": false,
+        "description": "Jitsi Videobridge TCP-fallback"
+      }
+    ],
+    "turn": [
+      {
+        "fqdn": "meet.sambruk.nu",
+        "ports": [3478],
+        "protocol": "UDP/TCP",
+        "required": true,
+        "description": "TURN/STUN standardport"
+      },
+      {
+        "fqdn": "meet.sambruk.nu",
+        "ports": [5349],
+        "protocol": "TCP/TLS",
+        "required": true,
+        "description": "TURN över TLS"
+      },
+      {
+        "fqdn": "meet.sambruk.nu",
+        "ports": [4443],
+        "protocol": "TCP/UDP",
+        "required": false,
+        "note": "Fallback-port",
+        "description": "TURN fallback-port"
+      },
+      {
+        "ip": "142.132.237.134",
+        "ports": [443],
+        "protocol": "TCP/TLS",
+        "required": true,
+        "note": "TURN via SNI-routing, använd IP direkt",
+        "description": "TURN via port 443 (SNI-routing till coturn)"
+      }
+    ],
+    "external_stun": [
+      {
+        "fqdn": "meet-jit-si-turnrelay.jitsi.net",
+        "ports": [443],
+        "protocol": "UDP",
+        "required": false,
+        "description": "Jitsis externa STUN/TURN-relay"
+      }
+    ]
+  }
+}

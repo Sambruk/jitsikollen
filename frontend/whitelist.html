@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vitlistning - Jitsi-kollen</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="header">
+    <div class="header-inner">
+      <div style="display:flex; align-items:center; gap:1rem;">
+        <img src="sambruk%20logga%20utan%20text%20transparent.png" alt="Sambruk" class="header-logo">
+        <div>
+          <h1>Jitsi-kollen</h1>
+          <div class="subtitle">Diagnostik och vitlistning för meet.sambruk.nu</div>
+        </div>
+      </div>
+      <div class="header-date" id="current-date"></div>
+    </div>
+  </header>
+
+  <nav>
+    <div class="nav-inner">
+      <a href="index.html">Start</a>
+      <a href="test.html">Diagnostik</a>
+      <a href="whitelist.html" class="active">Vitlistning</a>
+    </div>
+  </nav>
+
+  <main class="container">
+    <!-- Send to IT card -->
+    <div class="card" style="background:linear-gradient(135deg,#eff6ff,#f8fafc); border-color:#bfdbfe;">
+      <h2>Behöver du skicka vitlistningen till din IT-avdelning?</h2>
+      <p style="color:var(--text-muted); margin-bottom:1rem;">
+        Ladda ner ett komplett underlag som du kan skicka direkt till IT. Dokumentet innehåller
+        alla adresser, portar och en kort förklaring av varför de behövs.
+      </p>
+      <div style="display:flex; flex-wrap:wrap; gap:0.75rem;">
+        <button class="btn btn-primary" onclick="exportWhitelistWord()">Ladda ner underlag (Word)</button>
+        <button class="btn btn-secondary" onclick="window.print()">Skriv ut / PDF</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Vitlistnings-hub</h2>
+      <p style="color:var(--text-muted); margin-bottom:1rem;">
+        Nedan listas alla IP-adresser, FQDN, portar och protokoll som er IT-avdelning
+        behöver vitlista i brandväggen för att Jitsi-videomöten på <strong>meet.sambruk.nu</strong> ska fungera.
+      </p>
+      <p style="color:var(--text-muted); margin-bottom:1rem;">
+        <strong>Obligatoriska</strong> poster måste vara öppna. <strong>Valfria</strong> poster
+        förbättrar tillförlitligheten och ger reservvägar om den primära anslutningen blockeras.
+      </p>
+    </div>
+
+    <!-- Action bar -->
+    <div class="card">
+      <h3>Exportera &amp; kopiera</h3>
+      <div class="action-bar">
+        <button class="btn btn-secondary btn-sm" onclick="downloadJSON()">Ladda ner JSON</button>
+        <button class="btn btn-secondary btn-sm" onclick="downloadCSV()">Ladda ner CSV</button>
+        <button class="btn btn-secondary btn-sm" onclick="copyIPs()">Kopiera IP/FQDN</button>
+      </div>
+      <div style="margin-top:1rem;">
+        <label for="firewall-select" style="font-weight:600; font-size:0.9rem;">Brandväggsregler:</label>
+        <select id="firewall-select" onchange="loadFirewallRules(this.value)" style="margin-left:0.5rem;">
+          <option value="">Välj format...</option>
+          <option value="generic">Generiska regler</option>
+          <option value="paloalto">Palo Alto</option>
+          <option value="fortinet">FortiGate / Fortinet</option>
+        </select>
+      </div>
+      <div id="firewall-output" style="display:none; margin-top:1rem;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+          <strong id="firewall-title"></strong>
+          <button class="btn btn-sm btn-secondary" onclick="copyFirewallRules()">Kopiera</button>
+        </div>
+        <div class="code-block" id="firewall-code"></div>
+      </div>
+    </div>
+
+    <!-- Signaling -->
+    <div class="card">
+      <h2>Signalering</h2>
+      <p style="color:var(--text-muted); margin-bottom:1rem;">HTTPS- och WebSocket-anslutning till Jitsi-servern.</p>
+      <table class="whitelist-table">
+        <thead>
+          <tr><th>FQDN/IP</th><th>Port</th><th>Protokoll</th><th>Status</th><th>Beskrivning</th></tr>
+        </thead>
+        <tbody id="wl-signaling"></tbody>
+      </table>
+    </div>
+
+    <!-- Media -->
+    <div class="card">
+      <h2>Media (JVB)</h2>
+      <p style="color:var(--text-muted); margin-bottom:1rem;">Jitsi Videobridge media-portar för ljud och video.</p>
+      <table class="whitelist-table">
+        <thead>
+          <tr><th>FQDN/IP</th><th>Port</th><th>Protokoll</th><th>Status</th><th>Beskrivning</th></tr>
+        </thead>
+        <tbody id="wl-media"></tbody>
+      </table>
+    </div>
+
+    <!-- TURN -->
+    <div class="card">
+      <h2>TURN/STUN</h2>
+      <p style="color:var(--text-muted); margin-bottom:1rem;">Reservvägar (relay) för när direkt UDP-anslutning blockeras. TURN via port 443 är särskilt viktigt för strikt brandvägg.</p>
+      <table class="whitelist-table">
+        <thead>
+          <tr><th>FQDN/IP</th><th>Port</th><th>Protokoll</th><th>Status</th><th>Beskrivning</th></tr>
+        </thead>
+        <tbody id="wl-turn"></tbody>
+      </table>
+    </div>
+
+    <!-- External STUN -->
+    <div class="card">
+      <h2>Extern STUN</h2>
+      <p style="color:var(--text-muted); margin-bottom:1rem;">Extern STUN-server som Jitsi använder som reserv.</p>
+      <table class="whitelist-table">
+        <thead>
+          <tr><th>FQDN/IP</th><th>Port</th><th>Protokoll</th><th>Status</th><th>Beskrivning</th></tr>
+        </thead>
+        <tbody id="wl-external_stun"></tbody>
+      </table>
+    </div>
+
+    <!-- Explanation -->
+    <div class="card">
+      <h2>Varför behövs vitlistning?</h2>
+      <p style="color:var(--text-muted); line-height:1.8;">
+        Jitsi använder WebRTC för realtidskommunikation. Det innebär att webbläsaren behöver
+        kunna nå flera olika tjänster: signaleringsservern (HTTPS/WebSocket), videobryggan (UDP 10000),
+        och TURN-servrar (för när direkt anslutning blockeras).
+      </p>
+      <p style="color:var(--text-muted); line-height:1.8; margin-top:0.5rem;">
+        Många organisationer har brandväggar som blockerar utgående UDP-trafik och ovanliga portar.
+        TURN-servrar ger reservvägar genom att tunnla mediatrafik över TCP eller TLS på
+        standardportar som 443 (HTTPS). Om alla TURN-vägar också blockeras kan inte videomöten fungera.
+      </p>
+      <p style="color:var(--text-muted); line-height:1.8; margin-top:0.5rem;">
+        <strong>Minimikrav:</strong> Öppna åtminstone TCP 443 mot meet.sambruk.nu och dess IP-adress (142.132.237.134).
+        För bäst kvalitet, öppna även UDP 10000 och UDP/TCP 3478.
+      </p>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <p>Jitsi-kollen &mdash; Ett verktyg från Sambruk för meet.sambruk.nu</p>
+  </footer>
+
+  <div class="toast" id="toast"></div>
+  <script src="js/utils.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/whitelist.js"></script>
+</body>
+</html>
