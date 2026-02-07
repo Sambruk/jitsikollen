@@ -27,6 +27,7 @@ services:
       - TURN_HOST=meet.sambruk.nu
       - TURN_PORT=3478
       - TURNS_PORT=5349
+      - STUN_UDP_TEST=${STUN_UDP_TEST:-true}
 
   stun-udp-test:
     image: coturn/coturn

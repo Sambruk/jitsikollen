@@ -116,6 +116,9 @@
 - [x] Add stun-udp-test container (coturn STUN-only on UDP 10000) to docker-compose.yml
 - [x] Replace fake UDP 10000 proxy-test with real STUN binding to port 10000
 - [x] Verify STUN responds on UDP 10000
+- [x] Add STUN_UDP_TEST env var to .env, docker-compose.yml, and /info endpoint
+- [x] Conditionally run UDP 10000 test based on serverInfo.stunUdpTest
+- [x] Update README.md with UDP 10000 test explanation and STUN_UDP_TEST toggle
 
 ## Notes
 - app.sambruk.se routing via port 443 affected by resty-auto-ssl TLS interception

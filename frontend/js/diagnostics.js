@@ -4,6 +4,7 @@ var allTestResults = [];
 var totalTests = 0;
 var completedTests = 0;
 var turnCreds = null; // Populated before layer 2 with real TURN credentials
+var serverInfo = null; // Populated at start with /api/info
 
 function hasRealCreds() {
   return turnCreds && turnCreds.credentialSource === 'prosody';
@@ -30,8 +31,7 @@ var TEST_DEFINITIONS = {
     { id: 'turn-tls-5349', name: 'TURN TLS 5349', category: 'nice' },
     { id: 'turn-tcp-4443', name: 'TURN TCP 4443', category: 'nice' },
     { id: 'turn-443-sni', name: 'TURN via 443 (SNI)', category: 'important' },
-    { id: 'turn-tls-443-ext', name: 'TURN TLS 443 (extern)', category: 'nice' },
-    { id: 'udp-10000', name: 'UDP 10000 (JVB)', category: 'important' }
+    { id: 'turn-tls-443-ext', name: 'TURN TLS 443 (extern)', category: 'nice' }
   ],
   3: [
     { id: 'ice-candidates', name: 'ICE-kandidater', category: 'critical' },
@@ -50,6 +50,13 @@ var TEST_DEFINITIONS = {
 };
 
 function initTestUI() {
+  // Dynamically add UDP 10000 test if enabled
+  if (serverInfo && serverInfo.stunUdpTest) {
+    var hasUdp = TEST_DEFINITIONS[2].some(function(t) { return t.id === 'udp-10000'; });
+    if (!hasUdp) {
+      TEST_DEFINITIONS[2].push({ id: 'udp-10000', name: 'UDP 10000 (JVB)', category: 'important' });
+    }
+  }
   for (var layer in TEST_DEFINITIONS) {
     var container = document.getElementById('layer-' + layer + '-items');
     if (!container) continue;
@@ -715,6 +722,9 @@ async function startDiagnostics() {
   document.getElementById('test-running').style.display = '';
   document.getElementById('test-complete').style.display = 'none';
 
+  // Fetch server info (controls which tests to run)
+  try { serverInfo = await apiJSON('/info'); } catch (e) { serverInfo = null; }
+
   initTestUI();
 
   // Run layers sequentially
@@ -723,7 +733,11 @@ async function startDiagnostics() {
   // Fetch TURN credentials before layer 2 (real credentials from Prosody)
   try { turnCreds = await apiJSON('/turn-credentials'); } catch (e) { turnCreds = null; }
 
-  await runLayer(2, [testSTUN, testTURN_UDP, testTURN_TLS, testTURN_TCP_4443, testTURN_443_SNI, testTURN_443_EXT, testUDP10000]);
+  var layer2Tests = [testSTUN, testTURN_UDP, testTURN_TLS, testTURN_TCP_4443, testTURN_443_SNI, testTURN_443_EXT];
+  if (serverInfo && serverInfo.stunUdpTest) {
+    layer2Tests.push(testUDP10000);
+  }
+  await runLayer(2, layer2Tests);
   await runLayer(3, [testICECandidates, testPeerConnection, testDataChannel]);
   await runLayer(4, [testJitsiHTTPS, testJitsiWebSocket]);
   await runLayer(5, [testBandwidth, testLatency, testJitter]);

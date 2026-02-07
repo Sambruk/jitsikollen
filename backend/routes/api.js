@@ -64,7 +64,8 @@ router.get('/info', (req, res) => {
     turnHost: process.env.TURN_HOST || 'meet.sambruk.nu',
     turnPort: parseInt(process.env.TURN_PORT) || 3478,
     turnsPort: parseInt(process.env.TURNS_PORT) || 5349,
-    jvbPort: parseInt(process.env.JVB_PORT) || 10000
+    jvbPort: parseInt(process.env.JVB_PORT) || 10000,
+    stunUdpTest: process.env.STUN_UDP_TEST !== 'false'
   });
 });
 

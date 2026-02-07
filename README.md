@@ -70,6 +70,7 @@ cp .env.example .env
 | `TURN_PORT` | STUN/TURN standardport | `3478` (standard) |
 | `TURNS_PORT` | TURN-over-TLS port | `5349` (standard) |
 | `JVB_PORT` | Jitsi Videobridge mediaport | `10000` (standard) |
+| `STUN_UDP_TEST` | Aktivera UDP 10000-test (se nedan) | `true` / `false` |
 
 ### 2. docker-compose.yml
 
@@ -100,11 +101,28 @@ volumes:
   - /sökväg/till/projekt/db:/app/db-data
 ```
 
-### 3. Brandväggsregler (whitelist.json)
+### 3. UDP 10000-test (STUN-proxy)
+
+Jitsi Videobridge (JVB) använder UDP port 10000 för media, men JVB pratar inte STUN-protokoll. Därför kan en webbläsare inte direkt testa om port 10000 är nåbar.
+
+Lösningen är en dedikerad STUN-only-server (coturn) som lyssnar på UDP 10000 på **en annan maskin** än Jitsi-servern (eftersom JVB redan upptar den porten). När klienten gör en STUN binding request till denna server på port 10000 och får ett svar, bevisar det att klientens brandvägg tillåter utgående UDP-trafik på port 10000.
+
+Tjänsten `stun-udp-test` i `docker-compose.yml` kör denna STUN-lyssnare. Den exponeras på `0.0.0.0:10000/udp`.
+
+**Avaktivera testet** om du inte har en tillgänglig UDP 10000-port på din infrastruktur:
+
+```bash
+# I .env
+STUN_UDP_TEST=false
+```
+
+Starta om backend efter ändring: `docker compose restart backend`
+
+### 4. Brandväggsregler (whitelist.json)
 
 Redigera `backend/data/whitelist.json` och ersätt alla `meet.sambruk.nu` med din Jitsi-domän. Uppdatera IP-adressen under TURN SNI-routing till din servers IP.
 
-### 4. TURN-credentials (turn-credentials.js)
+### 5. TURN-credentials (turn-credentials.js)
 
 Tjänsten hämtar TURN-credentials via BOSH/XMPP från Prosody. Om din Jitsi-instans har annan XMPP-konfiguration, ändra miljövariablerna:
 
@@ -114,7 +132,7 @@ environment:
   - XMPP_GUEST_DOMAIN=guest.meet.jitsi  # Gästdomän för anonym auth
 ```
 
-### 5. Nginx reverse proxy
+### 6. Nginx reverse proxy
 
 Lägg till location-block i din nginx-konfiguration:
 
