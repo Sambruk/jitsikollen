@@ -35,7 +35,7 @@ router.get('/turn-credentials', async (req, res) => {
           { urls: `turn:${turnHost}:${turnPort}?transport=tcp`, username: creds.username, credential: creds.password },
           { urls: `turns:${turnHost}:${turnsPort}?transport=tcp`, username: creds.username, credential: creds.password },
           { urls: `turn:${turnHost}:4443?transport=tcp`, username: creds.username, credential: creds.password },
-          { urls: `turns:${turnHost}:443?transport=tcp`, username: creds.username, credential: creds.password },
+          { urls: `turns:turn.${turnHost}:443?transport=tcp`, username: creds.username, credential: creds.password },
           { urls: 'stun:meet-jit-si-turnrelay.jitsi.net:443' }
         ],
         jitsiDomain: process.env.JITSI_DOMAIN || 'meet.sambruk.nu',

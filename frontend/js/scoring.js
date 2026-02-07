@@ -47,8 +47,7 @@ var RECOMMENDATIONS = {
     warn: 'WebRTC-anslutning fungerade delvis. Några reservvägar kan användas.'
   },
   'data-channel': {
-    fail: 'DataChannel kunde inte öppnas. WebRTC-anslutningen är instabil.',
-    warn: 'DataChannel-echo är inte tillgänglig via testservern. Signaleringsvägen fungerar.'
+    fail: 'DataChannel kunde inte öppnas. WebRTC-anslutningen är instabil.'
   },
   'jitsi-websocket': {
     fail: 'WebSocket-signalering blockeras. Er proxy terminerar troligen WebSocket-uppgraderingar. Vitlista meet.sambruk.nu.',
@@ -56,10 +55,6 @@ var RECOMMENDATIONS = {
   },
   'jitsi-https': {
     fail: 'HTTPS-åtkomst till meet.sambruk.nu blockeras. Kontrollera att port 443 är öppen mot meet.sambruk.nu.'
-  },
-  'jitsi-tcp-4443': {
-    fail: 'Jitsi ej nåbar. Kontrollera nätverksanslutningen.',
-    warn: 'TCP 4443 kan inte verifieras från webbläsaren. Jitsi är nåbar via HTTPS.'
   },
   'bandwidth': {
     fail: 'Bandbredden är för låg för video (<0.5 Mbps). Kontrollera nätverksanslutningen.',

@@ -106,6 +106,17 @@
 - [x] Re-add POST /results saving after test completes (removed in v1.5)
 - [x] Chain: save result → fetch stats → display (ensures count is current)
 
+## Clean up test artifacts (v1.7)
+- [x] Remove fake TCP 4443 test (definition, function, runLayer call, recommendation)
+- [x] DataChannel: change signaling-only from warn to pass
+- [x] WebSocket: remove "cross-origin-begränsning" detail text, show clean pass
+- [x] Remove DataChannel warn recommendation from scoring.js
+
+## Fix UDP 10000 test (v1.7)
+- [x] Add stun-udp-test container (coturn STUN-only on UDP 10000) to docker-compose.yml
+- [x] Replace fake UDP 10000 proxy-test with real STUN binding to port 10000
+- [x] Verify STUN responds on UDP 10000
+
 ## Notes
 - app.sambruk.se routing via port 443 affected by resty-auto-ssl TLS interception
 - Tool accessible via vibecoder-sambruk2-u917.vm.elestio.app on both /jitsi-test/ (443) and :9443

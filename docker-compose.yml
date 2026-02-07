@@ -27,3 +27,10 @@ services:
       - TURN_HOST=meet.sambruk.nu
       - TURN_PORT=3478
       - TURNS_PORT=5349
+
+  stun-udp-test:
+    image: coturn/coturn
+    restart: always
+    ports:
+      - "0.0.0.0:10000:3478/udp"
+    command: -n --no-auth --stun-only --listening-port 3478 -L 0.0.0.0 --no-cli
