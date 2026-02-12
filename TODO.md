@@ -120,6 +120,9 @@
 - [x] Conditionally run UDP 10000 test based on serverInfo.stunUdpTest
 - [x] Update README.md with UDP 10000 test explanation and STUN_UDP_TEST toggle
 
+## UI: Ta bort procentsiffror (v1.8)
+- [x] Ta bort procenttal från lager-rubriker i test.html (Lager 1–5)
+
 ## Notes
 - app.sambruk.se routing via port 443 affected by resty-auto-ssl TLS interception
 - Tool accessible via vibecoder-sambruk2-u917.vm.elestio.app on both /jitsi-test/ (443) and :9443
