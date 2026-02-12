@@ -854,7 +854,7 @@ function exportResultWord() {
     for (var j = 0; j < recs.length; j++) {
       var rec = recs[j];
       var cls = rec.severity === 'critical' ? 'rec-critical' : (rec.severity === 'warning' ? 'rec-warning' : 'rec-info');
-      html += '<div class="rec ' + cls + '">' + escapeHtml(rec.text) + '</div>';
+      html += '<div class="rec ' + cls + '"><strong>' + escapeHtml(rec.testName) + ':</strong> ' + escapeHtml(rec.message) + '</div>';
     }
   }
 
