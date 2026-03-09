@@ -8,7 +8,6 @@ services:
       - /opt/app/jitsi-diagnostics/frontend:/usr/share/nginx/html
       - /opt/app/jitsi-diagnostics/frontend/css:/usr/share/nginx/html/css
       - /opt/app/jitsi-diagnostics/frontend/js:/usr/share/nginx/html/js
-
   backend:
     image: node:22-bookworm-slim
     restart: always

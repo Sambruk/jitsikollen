@@ -11,6 +11,29 @@
   }
 })();
 
+// Fetch server info and populate dynamic domain references
+(function() {
+  if (typeof apiJSON === 'function') {
+    apiJSON('/info').then(function(info) {
+      var domain = info.jitsiDomain || '';
+      var subtitle = document.getElementById('header-subtitle');
+      if (subtitle && domain) {
+        subtitle.textContent = 'Diagnostik och vitlistning för ' + domain;
+      }
+      var footer = document.getElementById('footer-text');
+      if (footer && domain) {
+        footer.textContent = 'Jitsi-kollen \u2014 Ett verktyg från Sambruk för ' + domain;
+      }
+      var heroDesc = document.getElementById('hero-desc');
+      if (heroDesc && domain) {
+        heroDesc.textContent = 'Testa er organisations nätverks- och webbläsarkompatibilitet med Jitsi-videomöten på ' + domain + '. Få en poäng, specifika rekommendationer och brandväggsregler.';
+      }
+    }).catch(function() {
+      // Silently ignore - domain info is non-critical
+    });
+  }
+})();
+
 // Load stats on start page
 (function() {
   var statsBar = document.getElementById('stats-bar');
