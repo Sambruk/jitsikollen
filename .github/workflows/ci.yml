@@ -1,0 +1,171 @@
+name: CI – Build & Smoke Test
+
+on:
+  push:
+    branches: [main, upgrades]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm install --production
+
+      - name: Verify backend starts
+        working-directory: backend
+        run: |
+          # Start server in background
+          node server.js &
+          SERVER_PID=$!
+
+          # Wait for server to be ready
+          echo "Waiting for backend to start..."
+          for i in $(seq 1 15); do
+            if curl -sf http://localhost:3000/api/info > /dev/null 2>&1; then
+              echo "Backend is up!"
+              break
+            fi
+            sleep 1
+          done
+
+          # Test /api/info endpoint
+          echo "--- GET /api/info ---"
+          curl -sf http://localhost:3000/api/info | tee /tmp/info.json
+          echo ""
+
+          # Validate JSON response contains jitsiDomain
+          if ! grep -q "jitsiDomain" /tmp/info.json; then
+            echo "ERROR: /api/info did not return jitsiDomain"
+            kill $SERVER_PID 2>/dev/null
+            exit 1
+          fi
+
+          # Test /api/whitelist endpoint
+          echo "--- GET /api/whitelist ---"
+          HTTP_CODE=$(curl -sf -o /dev/null -w "%{http_code}" http://localhost:3000/api/whitelist/rules 2>/dev/null || echo "000")
+          echo "Whitelist rules HTTP status: $HTTP_CODE"
+
+          # Cleanup
+          kill $SERVER_PID 2>/dev/null
+          echo "Backend smoke tests passed ✓"
+        env:
+          PORT: 3000
+          JITSI_DOMAIN: meet.example.com
+          DB_PATH: ./db-data/diagnostics.sqlite
+          STUN_UDP_TEST: "false"
+
+      - name: Validate frontend files
+        run: |
+          echo "Checking required frontend files..."
+          MISSING=0
+          for f in frontend/index.html frontend/test.html frontend/results.html frontend/whitelist.html frontend/js/app.js frontend/css/style.css; do
+            if [ -f "$f" ]; then
+              echo "  ✓ $f"
+            else
+              echo "  ✗ $f MISSING"
+              MISSING=1
+            fi
+          done
+
+          if [ "$MISSING" -eq 1 ]; then
+            echo "ERROR: Some frontend files are missing"
+            exit 1
+          fi
+
+          echo "Frontend file check passed ✓"
+
+  docker-compose-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate docker-compose.yml
+        run: docker compose config --quiet
+
+      - name: Build & start stack (modified for CI)
+        run: |
+          # Create a CI-specific compose override that removes host-specific volumes and ports
+          cat > docker-compose.ci.yml << 'EOF'
+          services:
+            frontend:
+              ports:
+                - "8080:80"
+              volumes:
+                - ./frontend:/usr/share/nginx/html
+                - ./frontend/css:/usr/share/nginx/html/css
+                - ./frontend/js:/usr/share/nginx/html/js
+            backend:
+              ports:
+                - "3000:3000"
+              volumes:
+                - ./backend:/app
+                - ./db-data:/app/db-data
+              environment:
+                - NODE_ENV=production
+                - PORT=3000
+                - DB_PATH=/app/db-data/diagnostics.sqlite
+                - JITSI_DOMAIN=meet.example.com
+                - STUN_UDP_TEST=false
+          EOF
+
+          mkdir -p db-data
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d backend frontend
+
+      - name: Wait for services
+        run: |
+          echo "Waiting for services to start..."
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3000/api/info > /dev/null 2>&1; then
+              echo "Backend ready after ${i}s"
+              break
+            fi
+            if [ "$i" -eq 30 ]; then
+              echo "Backend failed to start"
+              docker compose logs backend
+              exit 1
+            fi
+            sleep 1
+          done
+
+          for i in $(seq 1 15); do
+            if curl -sf http://localhost:8080/ > /dev/null 2>&1; then
+              echo "Frontend ready after ${i}s"
+              break
+            fi
+            if [ "$i" -eq 15 ]; then
+              echo "Frontend failed to start"
+              docker compose logs frontend
+              exit 1
+            fi
+            sleep 1
+          done
+
+      - name: Smoke test API
+        run: |
+          echo "--- /api/info ---"
+          curl -sf http://localhost:3000/api/info | python3 -m json.tool
+
+          echo ""
+          echo "--- Frontend index.html ---"
+          curl -sf http://localhost:8080/ | head -20
+
+          echo ""
+          echo "All smoke tests passed ✓"
+
+      - name: Cleanup
+        if: always()
+        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml down -v

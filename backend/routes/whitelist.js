@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 
 const whitelistPath = path.join(__dirname, '..', 'data', 'whitelist.json');
+const JITSI_DOMAIN = process.env.JITSI_DOMAIN || 'meet.sambruk.nu';
 
 function loadWhitelist() {
   return JSON.parse(fs.readFileSync(whitelistPath, 'utf-8'));
@@ -51,7 +52,7 @@ router.get('/csv', (req, res) => {
 // Generic firewall rules
 router.get('/firewall/generic', (req, res) => {
   const data = loadWhitelist();
-  const rules = ['# Brandväggsregler för Jitsi (meet.sambruk.nu)', `# Genererat: ${new Date().toISOString()}`, ''];
+  const rules = [`# Brandväggsregler för Jitsi (${JITSI_DOMAIN})`, `# Genererat: ${new Date().toISOString()}`, ''];
 
   Object.entries(data.servers).forEach(([category, entries]) => {
     rules.push(`# --- ${category.toUpperCase()} ---`);
@@ -75,7 +76,7 @@ router.get('/firewall/generic', (req, res) => {
 router.get('/firewall/paloalto', (req, res) => {
   const data = loadWhitelist();
   const rules = [
-    '# Palo Alto Firewall Rules - Jitsi (meet.sambruk.nu)',
+    `# Palo Alto Firewall Rules - Jitsi (${JITSI_DOMAIN})`,
     `# Genererat: ${new Date().toISOString()}`,
     '',
     '# Address Objects'
@@ -127,7 +128,7 @@ router.get('/firewall/paloalto', (req, res) => {
 router.get('/firewall/fortinet', (req, res) => {
   const data = loadWhitelist();
   const rules = [
-    '# FortiGate Firewall Rules - Jitsi (meet.sambruk.nu)',
+    `# FortiGate Firewall Rules - Jitsi (${JITSI_DOMAIN})`,
     `# Genererat: ${new Date().toISOString()}`,
     ''
   ];
