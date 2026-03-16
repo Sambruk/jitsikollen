@@ -598,6 +598,128 @@ nav a.active {
   box-shadow: 0 0 0 3px rgba(26,115,232,0.15);
 }
 
+/* Platform selector */
+.platform-selector {
+  margin-bottom: 1.5rem;
+}
+
+.platform-selector h3 {
+  margin-bottom: 1rem;
+}
+
+.platform-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+.platform-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 1.25rem 1rem;
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.2s;
+}
+
+.platform-card:hover {
+  border-color: var(--primary);
+  background: rgba(26,115,232,0.04);
+}
+
+.platform-card input[type="radio"] {
+  display: none;
+}
+
+.platform-card.selected {
+  border-color: var(--primary);
+  background: rgba(26,115,232,0.08);
+  box-shadow: 0 0 0 3px rgba(26,115,232,0.15);
+}
+
+.platform-card .platform-name {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.platform-card .platform-domain {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.platform-card .platform-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+
+.platform-card[data-platform="jitsi"] .platform-icon {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+
+.platform-card[data-platform="nextcloud"] .platform-icon {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.platform-card[data-platform="both"] .platform-icon {
+  background: #f0fdf4;
+  color: #166534;
+}
+
+/* Dual score display */
+.dual-score {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.dual-score .platform-score-section {
+  text-align: center;
+}
+
+.dual-score .platform-score-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid var(--border);
+}
+
+.dual-score .score-circle {
+  width: 140px;
+  height: 140px;
+}
+
+.dual-score .score-number {
+  font-size: 2.5rem;
+}
+
+@media (max-width: 768px) {
+  .platform-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .dual-score {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Dropdown */
 select {
   padding: 0.5rem 0.8rem;

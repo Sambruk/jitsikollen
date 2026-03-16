@@ -1,14 +1,38 @@
-// Whitelist page logic
+// Whitelist page logic - supports Jitsi, Nextcloud Talk, or both
 
 var whitelistData = null;
+var currentWhitelistPlatform = 'jitsi';
 
 (function() {
   loadWhitelist();
 })();
 
+function switchWhitelistPlatform(platform) {
+  currentWhitelistPlatform = platform;
+  loadWhitelist();
+
+  // Hide/show platform-specific sections
+  var mediaCard = document.getElementById('wl-media-card');
+  var externalStunCard = document.getElementById('wl-external-stun-card');
+
+  if (platform === 'nextcloud') {
+    if (mediaCard) mediaCard.style.display = 'none';
+    if (externalStunCard) externalStunCard.style.display = 'none';
+  } else {
+    if (mediaCard) mediaCard.style.display = '';
+    if (externalStunCard) externalStunCard.style.display = '';
+  }
+
+  // Reset firewall output
+  var fwOutput = document.getElementById('firewall-output');
+  if (fwOutput) fwOutput.style.display = 'none';
+  var fwSelect = document.getElementById('firewall-select');
+  if (fwSelect) fwSelect.value = '';
+}
+
 async function loadWhitelist() {
   try {
-    whitelistData = await apiJSON('/whitelist');
+    whitelistData = await apiJSON('/whitelist?platform=' + currentWhitelistPlatform);
     renderWhitelist();
   } catch (e) {
     var tables = ['wl-signaling', 'wl-media', 'wl-turn', 'wl-external_stun'];
@@ -25,7 +49,12 @@ function renderWhitelist() {
   for (var i = 0; i < categories.length; i++) {
     var cat = categories[i];
     var tbody = document.getElementById('wl-' + cat);
-    if (!tbody || !whitelistData.servers[cat]) continue;
+    if (!tbody) continue;
+
+    if (!whitelistData.servers[cat] || whitelistData.servers[cat].length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" style="color:var(--text-muted);">Inga poster i denna kategori</td></tr>';
+      continue;
+    }
 
     var html = '';
     var entries = whitelistData.servers[cat];
@@ -50,8 +79,9 @@ function renderWhitelist() {
 
 async function downloadJSON() {
   try {
-    var data = await apiJSON('/whitelist');
-    downloadText('jitsi-whitelist.json', JSON.stringify(data, null, 2), 'application/json');
+    var data = await apiJSON('/whitelist?platform=' + currentWhitelistPlatform);
+    var filename = currentWhitelistPlatform === 'both' ? 'videomotes-whitelist.json' : currentWhitelistPlatform + '-whitelist.json';
+    downloadText(filename, JSON.stringify(data, null, 2), 'application/json');
     showToast('JSON nedladdad');
   } catch (e) {
     showToast('Fel: ' + e.message);
@@ -60,9 +90,10 @@ async function downloadJSON() {
 
 async function downloadCSV() {
   try {
-    var resp = await apiFetch('/whitelist/csv');
+    var resp = await apiFetch('/whitelist/csv?platform=' + currentWhitelistPlatform);
     var text = await resp.text();
-    downloadText('jitsi-whitelist.csv', text, 'text/csv');
+    var filename = currentWhitelistPlatform === 'both' ? 'videomotes-whitelist.csv' : currentWhitelistPlatform + '-whitelist.csv';
+    downloadText(filename, text, 'text/csv');
     showToast('CSV nedladdad');
   } catch (e) {
     showToast('Fel: ' + e.message);
@@ -71,7 +102,7 @@ async function downloadCSV() {
 
 async function copyIPs() {
   try {
-    var resp = await apiFetch('/whitelist/ips');
+    var resp = await apiFetch('/whitelist/ips?platform=' + currentWhitelistPlatform);
     var text = await resp.text();
     copyToClipboard(text);
   } catch (e) {
@@ -87,7 +118,7 @@ async function loadFirewallRules(format) {
   }
 
   try {
-    var resp = await apiFetch('/whitelist/firewall/' + format);
+    var resp = await apiFetch('/whitelist/firewall/' + format + '?platform=' + currentWhitelistPlatform);
     var text = await resp.text();
 
     var titles = { generic: 'Generiska brandväggsregler', paloalto: 'Palo Alto-regler', fortinet: 'FortiGate-regler' };
@@ -115,9 +146,10 @@ function exportWhitelistWord() {
   var dateStr = new Date().toLocaleDateString('sv-SE', { year: 'numeric', month: 'long', day: 'numeric' });
   var categories = ['signaling', 'media', 'turn', 'external_stun'];
   var catNames = { signaling: 'Signalering', media: 'Media (JVB)', turn: 'TURN/STUN', external_stun: 'Extern STUN' };
+  var platformNames = { jitsi: 'Jitsi Meet (meet.sambruk.nu)', nextcloud: 'Nextcloud Talk (samverka.sambruk.se)', both: 'Jitsi Meet & Nextcloud Talk' };
 
   var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">';
-  html += '<head><meta charset="utf-8"><title>Vitlistning för Jitsi-videomöten</title>';
+  html += '<head><meta charset="utf-8"><title>Vitlistning för videomöten</title>';
   html += '<style>body{font-family:Calibri,Arial,sans-serif;color:#1e293b;margin:2cm;}';
   html += 'table{border-collapse:collapse;width:100%;margin:1em 0;}';
   html += 'th,td{border:1px solid #ccc;padding:6px 10px;text-align:left;font-size:10pt;}';
@@ -128,11 +160,11 @@ function exportWhitelistWord() {
   html += '.highlight{background:#dcfce7;}</style></head><body>';
 
   // Title & intro
-  html += '<h1>Vitlistning för Jitsi-videomöten</h1>';
-  html += '<p><strong>Tjänst:</strong> meet.sambruk.nu (Sambruk)</p>';
+  html += '<h1>Vitlistning för videomöten</h1>';
+  html += '<p><strong>Tjänst:</strong> ' + escapeHtml(platformNames[currentWhitelistPlatform] || currentWhitelistPlatform) + '</p>';
   html += '<p><strong>Datum:</strong> ' + escapeHtml(dateStr) + '</p>';
   html += '<p style="margin-top:1em;">Detta dokument innehåller de adresser och portar som behöver vara öppna i er brandvägg ';
-  html += 'för att Jitsi-videomöten via <strong>meet.sambruk.nu</strong> ska fungera korrekt. ';
+  html += 'för att videomöten ska fungera korrekt. ';
   html += 'Listan är uppdelad i obligatoriska poster (som måste öppnas) och valfria poster ';
   html += '(som ger bättre kvalitet och reservvägar).</p>';
 
@@ -164,30 +196,23 @@ function exportWhitelistWord() {
 
   // Minimum requirements
   html += '<h2>Minimikrav</h2>';
-  html += '<p>Om det inte är möjligt att öppna alla poster ovan, se till att åtminstone följande är öppna:</p>';
+  html += '<p>Se till att åtminstone följande poster är öppna:</p>';
   html += '<table><tr><th>Destination</th><th>Port</th><th>Protokoll</th><th>Syfte</th></tr>';
-  html += '<tr class="highlight"><td><code>meet.sambruk.nu</code></td><td><strong>443</strong></td><td>TCP (HTTPS/WSS)</td><td>Webbsida, signalering och TURN-fallback</td></tr>';
-  html += '<tr class="highlight"><td><code>142.132.237.134</code></td><td><strong>10000</strong></td><td>UDP</td><td>Media (ljud/video) via Jitsi Videobridge</td></tr>';
-  html += '<tr class="highlight"><td><code>meet.sambruk.nu</code></td><td><strong>3478</strong></td><td>UDP/TCP</td><td>STUN/TURN för NAT-traversering</td></tr>';
+
+  if (currentWhitelistPlatform === 'jitsi' || currentWhitelistPlatform === 'both') {
+    html += '<tr class="highlight"><td><code>meet.sambruk.nu</code></td><td><strong>443</strong></td><td>TCP (HTTPS/WSS)</td><td>Jitsi: Webbsida, signalering och TURN-fallback</td></tr>';
+    html += '<tr class="highlight"><td><code>142.132.237.134</code></td><td><strong>10000</strong></td><td>UDP</td><td>Jitsi: Media via Jitsi Videobridge</td></tr>';
+    html += '<tr class="highlight"><td><code>meet.sambruk.nu</code></td><td><strong>3478</strong></td><td>UDP/TCP</td><td>Jitsi: STUN/TURN</td></tr>';
+  }
+  if (currentWhitelistPlatform === 'nextcloud' || currentWhitelistPlatform === 'both') {
+    html += '<tr class="highlight"><td><code>samverka.sambruk.se</code></td><td><strong>443</strong></td><td>TCP (HTTPS)</td><td>Nextcloud Talk: Webbsida och signalering</td></tr>';
+    html += '<tr class="highlight"><td><code>stun.nextcloud.com</code></td><td><strong>443</strong></td><td>UDP</td><td>Nextcloud Talk: STUN-server</td></tr>';
+  }
   html += '</table>';
 
-  // Generic firewall rules
-  html += '<h2>Generiska brandväggsregler</h2>';
-  html += '<p>Nedan följer exempel på regler i generiskt format. Anpassa efter ert brandväggssystem.</p>';
-  html += '<pre style="background:#f1f5f9;padding:12px;border:1px solid #ddd;font-size:9pt;font-family:Consolas,monospace;">';
-  html += '# Obligatoriskt: HTTPS och signalering\n';
-  html += 'ALLOW TCP dst meet.sambruk.nu port 443\n\n';
-  html += '# Obligatoriskt: Media (JVB)\n';
-  html += 'ALLOW UDP dst 142.132.237.134 port 10000\n\n';
-  html += '# Rekommenderat: STUN/TURN\n';
-  html += 'ALLOW UDP dst meet.sambruk.nu port 3478\n';
-  html += 'ALLOW TCP dst meet.sambruk.nu port 3478\n';
-  html += 'ALLOW TCP dst meet.sambruk.nu port 5349\n';
-  html += '</pre>';
-
-  html += '<hr style="margin-top:2em;"><p style="font-size:9pt;color:#64748b;">Genererad av Jitsi-kollen &mdash; Ett verktyg från Sambruk för meet.sambruk.nu<br>';
-  html += 'Kör diagnostik och se mer info: <a href="https://app.sambruk.se/jitsi-test/">app.sambruk.se/jitsi-test/</a></p>';
+  html += '<hr style="margin-top:2em;"><p style="font-size:9pt;color:#64748b;">Genererad av Videomötes-kollen &mdash; Ett verktyg från Sambruk</p>';
   html += '</body></html>';
 
-  downloadText('vitlistning-jitsi-meet-sambruk.doc', html, 'application/msword');
+  var filename = currentWhitelistPlatform === 'both' ? 'vitlistning-videomoten-sambruk.doc' : 'vitlistning-' + currentWhitelistPlatform + '-sambruk.doc';
+  downloadText(filename, html, 'application/msword');
 }

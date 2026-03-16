@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Jitsi-kollen - Diagnostik &amp; Vitlistning</title>
+  <title>Videomötes-kollen - Diagnostik &amp; Vitlistning</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -12,8 +12,8 @@
       <div style="display:flex; align-items:center; gap:1rem;">
         <img src="sambruk%20logga%20utan%20text%20transparent.png" alt="Sambruk" class="header-logo">
         <div>
-          <h1>Jitsi-kollen</h1>
-          <div class="subtitle">Diagnostik och vitlistning för meet.sambruk.nu</div>
+          <h1>Videomötes-kollen</h1>
+          <div class="subtitle">Diagnostik och vitlistning för Sambruks videomötestjänster</div>
         </div>
       </div>
       <div class="header-date" id="current-date"></div>
@@ -30,8 +30,8 @@
 
   <main class="container">
     <div class="hero">
-      <h2>Fungerar Jitsi i er IT-miljö?</h2>
-      <p>Testa er organisations nätverks- och webbläsarkompatibilitet med Jitsi-videomöten på meet.sambruk.nu. Få en poäng, specifika rekommendationer och brandväggsregler.</p>
+      <h2>Fungerar videomöten i er IT-miljö?</h2>
+      <p>Testa er organisations nätverks- och webbläsarkompatibilitet med Sambruks videomötestjänster. Välj mellan Jitsi Meet (meet.sambruk.nu) och Nextcloud Talk (samverka.sambruk.se), eller testa båda.</p>
       <a href="test.html" class="btn btn-primary btn-lg">Starta diagnostik</a>
     </div>
 
@@ -51,7 +51,7 @@
       <div class="feature-card">
         <div class="icon">&#128269;</div>
         <h3>5 diagnostiklager</h3>
-        <p>Testar webbläsare, nätverk, WebRTC, Jitsi-specifikt och kvalitet i en komplett genomgång.</p>
+        <p>Testar webbläsare, nätverk, WebRTC, plattformsspecifikt och kvalitet i en komplett genomgång.</p>
       </div>
       <div class="feature-card">
         <div class="icon">&#127919;</div>
@@ -66,11 +66,25 @@
     </div>
 
     <div class="card">
+      <h2>Tjänster som stöds</h2>
+      <div class="features" style="margin:1rem 0 0;">
+        <div class="feature-card">
+          <h3 style="color:var(--primary);">Jitsi Meet</h3>
+          <p style="color:var(--text-muted); font-size:0.9rem;">meet.sambruk.nu - Videomöten med öppen källkod via Jitsi Videobridge, STUN/TURN och WebRTC.</p>
+        </div>
+        <div class="feature-card">
+          <h3 style="color:var(--primary);">Nextcloud Talk</h3>
+          <p style="color:var(--text-muted); font-size:0.9rem;">samverka.sambruk.se - Videomöten via Nextcloud Talk med integrerad chatt och fildelning.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
       <h2>Hur fungerar det?</h2>
       <ol style="padding-left:1.5rem; color: var(--text-muted); line-height: 2;">
-        <li><strong>Starta diagnostik</strong> - Klicka på knappen ovan eller gå till Diagnostik-fliken</li>
+        <li><strong>Välj tjänst</strong> - Jitsi Meet, Nextcloud Talk, eller båda</li>
         <li><strong>Valfritt: Ange organisation</strong> - För att spara testhistorik</li>
-        <li><strong>Testet körs automatiskt</strong> - Tar ca 30-60 sekunder</li>
+        <li><strong>Testet körs automatiskt</strong> - Tar ca 30-60 sekunder per tjänst</li>
         <li><strong>Se resultat</strong> - Poäng, bedömning och rekommendationer</li>
         <li><strong>Dela med IT</strong> - Exportera vitlistning och brandväggsregler</li>
       </ol>
@@ -85,15 +99,15 @@
         </div>
         <div>
           <h3 style="color:var(--primary);">Lager 2: Nätverk</h3>
-          <p style="color:var(--text-muted); font-size:0.9rem;">STUN, TURN (UDP/TLS/TCP), port 443, UDP 10000</p>
+          <p style="color:var(--text-muted); font-size:0.9rem;">STUN, TURN (UDP/TLS/TCP), plattformsspecifika portar</p>
         </div>
         <div>
           <h3 style="color:var(--primary);">Lager 3: WebRTC</h3>
           <p style="color:var(--text-muted); font-size:0.9rem;">ICE-kandidater, peer-anslutning, datakanal</p>
         </div>
         <div>
-          <h3 style="color:var(--primary);">Lager 4: Jitsi</h3>
-          <p style="color:var(--text-muted); font-size:0.9rem;">WebSocket-signalering, HTTPS, TCP-fallback</p>
+          <h3 style="color:var(--primary);">Lager 4: Plattform</h3>
+          <p style="color:var(--text-muted); font-size:0.9rem;">HTTPS-åtkomst, signalering, tjänstspecifika kontroller</p>
         </div>
         <div>
           <h3 style="color:var(--primary);">Lager 5: Kvalitet</h3>
@@ -104,7 +118,7 @@
   </main>
 
   <footer class="footer">
-    <p>Jitsi-kollen &mdash; Ett verktyg från Sambruk för meet.sambruk.nu</p>
+    <p>Videomötes-kollen &mdash; Ett verktyg från Sambruk</p>
   </footer>
 
   <div class="toast" id="toast"></div>

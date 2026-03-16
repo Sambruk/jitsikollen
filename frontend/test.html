@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Diagnostik - Jitsi-kollen</title>
+  <title>Diagnostik - Videomötes-kollen</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -12,8 +12,8 @@
       <div style="display:flex; align-items:center; gap:1rem;">
         <img src="sambruk%20logga%20utan%20text%20transparent.png" alt="Sambruk" class="header-logo">
         <div>
-          <h1>Jitsi-kollen</h1>
-          <div class="subtitle">Diagnostik och vitlistning för meet.sambruk.nu</div>
+          <h1>Videomötes-kollen</h1>
+          <div class="subtitle">Diagnostik och vitlistning för Sambruks videomötestjänster</div>
         </div>
       </div>
       <div class="header-date" id="current-date"></div>
@@ -33,10 +33,35 @@
     <div id="test-setup">
       <div class="card">
         <h2>Starta diagnostik</h2>
-        <p style="color:var(--text-muted); margin-bottom:1rem;">
-          Testet kontrollerar 5 lager av kompatibilitet med Jitsi på meet.sambruk.nu.
-          Det tar ca 30-60 sekunder. Kamera- och mikrofontillgång kan behövas.
+        <p style="color:var(--text-muted); margin-bottom:1.5rem;">
+          Välj vilken videomötestjänst du vill testa, eller testa båda samtidigt.
+          Testet tar ca 30-60 sekunder per tjänst. Kamera- och mikrofontillgång kan behövas.
         </p>
+
+        <div class="platform-selector">
+          <h3>Välj tjänst</h3>
+          <div class="platform-cards">
+            <label class="platform-card selected" data-platform="jitsi">
+              <input type="radio" name="platform" value="jitsi" checked>
+              <div class="platform-icon">JM</div>
+              <div class="platform-name">Jitsi Meet</div>
+              <div class="platform-domain">meet.sambruk.nu</div>
+            </label>
+            <label class="platform-card" data-platform="nextcloud">
+              <input type="radio" name="platform" value="nextcloud">
+              <div class="platform-icon">NC</div>
+              <div class="platform-name">Nextcloud Talk</div>
+              <div class="platform-domain">samverka.sambruk.se</div>
+            </label>
+            <label class="platform-card" data-platform="both">
+              <input type="radio" name="platform" value="both">
+              <div class="platform-icon">2x</div>
+              <div class="platform-name">Båda</div>
+              <div class="platform-domain">Testa båda tjänsterna</div>
+            </label>
+          </div>
+        </div>
+
         <div class="org-input">
           <label for="org-name">Organisation (valfritt):</label>
           <input type="text" id="org-name" placeholder="T.ex. Sundsvalls kommun">
@@ -71,7 +96,7 @@
       <!-- Layer 2 -->
       <div class="card test-layer" id="layer-2">
         <div class="layer-header" onclick="toggleLayer(2)">
-          <h3>Lager 2: Nätverksanslutning</h3>
+          <h3 id="layer-2-title">Lager 2: Nätverksanslutning</h3>
           <div class="layer-status" id="layer-2-status">
             <span class="dot dot-pending"></span> Väntar
           </div>
@@ -93,7 +118,7 @@
       <!-- Layer 4 -->
       <div class="card test-layer" id="layer-4">
         <div class="layer-header" onclick="toggleLayer(4)">
-          <h3>Lager 4: Jitsi-specifikt</h3>
+          <h3 id="layer-4-title">Lager 4: Plattformsspecifikt</h3>
           <div class="layer-status" id="layer-4-status">
             <span class="dot dot-pending"></span> Väntar
           </div>
@@ -143,7 +168,7 @@
   </main>
 
   <footer class="footer">
-    <p>Jitsi-kollen &mdash; Ett verktyg från Sambruk för meet.sambruk.nu</p>
+    <p>Videomötes-kollen &mdash; Ett verktyg från Sambruk</p>
   </footer>
 
   <div class="toast" id="toast"></div>
@@ -151,5 +176,15 @@
   <script src="js/app.js"></script>
   <script src="js/scoring.js"></script>
   <script src="js/diagnostics.js"></script>
+  <script>
+    // Platform selector logic
+    document.querySelectorAll('.platform-card input[name="platform"]').forEach(function(radio) {
+      radio.addEventListener('change', function() {
+        document.querySelectorAll('.platform-card').forEach(function(card) {
+          card.classList.toggle('selected', card.querySelector('input').checked);
+        });
+      });
+    });
+  </script>
 </body>
 </html>

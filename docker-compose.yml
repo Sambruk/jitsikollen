@@ -28,6 +28,12 @@ services:
       - TURN_PORT=3478
       - TURNS_PORT=5349
       - STUN_UDP_TEST=${STUN_UDP_TEST:-true}
+      - NEXTCLOUD_DOMAIN=samverka.sambruk.se
+      - NC_STUN_HOST=${NC_STUN_HOST:-stun.nextcloud.com}
+      - NC_STUN_PORT=${NC_STUN_PORT:-443}
+      - NC_TURN_HOST=${NC_TURN_HOST:-}
+      - NC_TURN_PORT=${NC_TURN_PORT:-3478}
+      - NC_TURNS_PORT=${NC_TURNS_PORT:-5349}
 
   stun-udp-test:
     image: coturn/coturn

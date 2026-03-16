@@ -1,4 +1,5 @@
-// Scoring and recommendation engine for Jitsi Diagnostik-Hub
+// Scoring and recommendation engine for Videomötes-kollen
+// Supports platform-aware scoring (Jitsi, Nextcloud Talk, or both)
 
 var LAYER_WEIGHTS = { 1: 0.10, 2: 0.35, 3: 0.25, 4: 0.20, 5: 0.10 };
 
@@ -14,6 +15,7 @@ var RECOMMENDATIONS = {
   'device-enum': {
     fail: 'Inga ljud/videoenheter hittades. Kontrollera att kamera och mikrofon är anslutna.'
   },
+  // Jitsi network
   'stun': {
     fail: 'STUN-trafik blockeras. Be IT-avdelningen öppna utgående UDP 3478 mot meet.sambruk.nu.'
   },
@@ -39,6 +41,15 @@ var RECOMMENDATIONS = {
     fail: 'Mediaport UDP 10000 blockeras. Videokvaliteten påverkas. Öppna utgående UDP 10000 mot meet.sambruk.nu.',
     warn: 'UDP 10000 verkar begränsad. Videokvaliteten kan påverkas.'
   },
+  // Nextcloud Talk network
+  'nc-stun': {
+    fail: 'STUN-trafik till Nextcloud blockeras. Be IT-avdelningen tillåta utgående trafik till stun.nextcloud.com:443.'
+  },
+  'nc-turn': {
+    fail: 'TURN-server för Nextcloud Talk ej nåbar.',
+    warn: 'Ingen TURN-server konfigurerad för Nextcloud Talk. Samtal kan misslyckas bakom restriktiv brandvägg.'
+  },
+  // Shared WebRTC
   'ice-candidates': {
     fail: 'Inga ICE-kandidater kunde samlas. Både STUN och TURN är blockerade.'
   },
@@ -49,6 +60,7 @@ var RECOMMENDATIONS = {
   'data-channel': {
     fail: 'DataChannel kunde inte öppnas. WebRTC-anslutningen är instabil.'
   },
+  // Jitsi platform
   'jitsi-websocket': {
     fail: 'WebSocket-signalering blockeras. Er proxy terminerar troligen WebSocket-uppgraderingar. Vitlista meet.sambruk.nu.',
     warn: 'WebSocket blockeras från den här sidan (cross-origin). I Jitsi-klienten fungerar WebSocket normalt från samma domän.'
@@ -56,6 +68,15 @@ var RECOMMENDATIONS = {
   'jitsi-https': {
     fail: 'HTTPS-åtkomst till meet.sambruk.nu blockeras. Kontrollera att port 443 är öppen mot meet.sambruk.nu.'
   },
+  // Nextcloud Talk platform
+  'nc-https': {
+    fail: 'HTTPS-åtkomst till samverka.sambruk.se blockeras. Kontrollera att port 443 är öppen mot samverka.sambruk.se.'
+  },
+  'nc-status': {
+    fail: 'Nextcloud Talk-servern svarar inte. Kontrollera att samverka.sambruk.se är tillgänglig.',
+    warn: 'Nextcloud Talk-serverns status kunde inte verifieras fullt ut.'
+  },
+  // Quality
   'bandwidth': {
     fail: 'Bandbredden är för låg för video (<0.5 Mbps). Kontrollera nätverksanslutningen.',
     warn: 'Bandbredden är låg (<1 Mbps). Videokvaliteten kan bli begränsad.'
@@ -69,13 +90,37 @@ var RECOMMENDATIONS = {
   }
 };
 
-function calculateScore(testResults) {
+// Platform-specific verdict messages
+var PLATFORM_VERDICTS = {
+  jitsi: {
+    green: { verdict: 'Redo för Jitsi-möten', description: 'Er IT-miljö är kompatibel med Jitsi. Videomöten på meet.sambruk.nu bör fungera utan problem.' },
+    yellow: { verdict: 'Begränsad anslutning', description: 'Jitsi fungerar med reservvägar, men vissa funktioner kan vara begränsade. Se rekommendationerna nedan.' },
+    red: { verdict: 'Blockerad - kräver ändringar', description: 'Er IT-miljö blockerar kritiska anslutningar. Videomöten på meet.sambruk.nu fungerar inte. Dela vitlistningen med IT-avdelningen.' }
+  },
+  nextcloud: {
+    green: { verdict: 'Redo för Nextcloud Talk', description: 'Er IT-miljö är kompatibel med Nextcloud Talk. Videomöten på samverka.sambruk.se bör fungera utan problem.' },
+    yellow: { verdict: 'Begränsad anslutning', description: 'Nextcloud Talk fungerar med reservvägar, men vissa funktioner kan vara begränsade. Se rekommendationerna nedan.' },
+    red: { verdict: 'Blockerad - kräver ändringar', description: 'Er IT-miljö blockerar kritiska anslutningar. Videomöten på samverka.sambruk.se fungerar inte. Dela vitlistningen med IT-avdelningen.' }
+  }
+};
+
+function calculateScore(testResults, platform) {
+  // Filter tests by platform
+  var filtered;
+  if (platform && platform !== 'both') {
+    filtered = testResults.filter(function(t) {
+      return t.platform === 'shared' || t.platform === platform;
+    });
+  } else {
+    filtered = testResults;
+  }
+
   var layerScores = {};
   var hasCriticalFail = false;
 
   // Group by layer
-  for (var i = 0; i < testResults.length; i++) {
-    var t = testResults[i];
+  for (var i = 0; i < filtered.length; i++) {
+    var t = filtered[i];
     if (!layerScores[t.layer]) {
       layerScores[t.layer] = { tests: [], totalWeight: 0 };
     }
@@ -111,22 +156,27 @@ function calculateScore(testResults) {
 
   totalScore = Math.round(totalScore);
 
+  // Get platform-specific verdicts
+  var verdictPlatform = platform || 'jitsi';
+  if (verdictPlatform === 'both') verdictPlatform = 'jitsi'; // fallback
+  var verdicts = PLATFORM_VERDICTS[verdictPlatform] || PLATFORM_VERDICTS.jitsi;
+
   var rating, color, verdict, description;
   if (totalScore >= 80) {
     rating = 'green';
     color = 'green';
-    verdict = 'Redo för Jitsi-möten';
-    description = 'Er IT-miljö är kompatibel med Jitsi. Videomöten på meet.sambruk.nu bör fungera utan problem.';
+    verdict = verdicts.green.verdict;
+    description = verdicts.green.description;
   } else if (totalScore >= 40) {
     rating = 'yellow';
     color = 'yellow';
-    verdict = 'Begränsad anslutning';
-    description = 'Jitsi fungerar med reservvägar, men vissa funktioner kan vara begränsade. Se rekommendationerna nedan.';
+    verdict = verdicts.yellow.verdict;
+    description = verdicts.yellow.description;
   } else {
     rating = 'red';
     color = 'red';
-    verdict = 'Blockerad - kräver ändringar';
-    description = 'Er IT-miljö blockerar kritiska anslutningar. Videomöten på meet.sambruk.nu fungerar inte. Dela vitlistningen med IT-avdelningen.';
+    verdict = verdicts.red.verdict;
+    description = verdicts.red.description;
   }
 
   return {
@@ -140,10 +190,19 @@ function calculateScore(testResults) {
   };
 }
 
-function getRecommendations(testResults) {
+function getRecommendations(testResults, platform) {
+  var filtered;
+  if (platform && platform !== 'both') {
+    filtered = testResults.filter(function(t) {
+      return t.platform === 'shared' || t.platform === platform;
+    });
+  } else {
+    filtered = testResults;
+  }
+
   var recs = [];
-  for (var i = 0; i < testResults.length; i++) {
-    var t = testResults[i];
+  for (var i = 0; i < filtered.length; i++) {
+    var t = filtered[i];
     if (t.status === 'pass') continue;
     var rec = RECOMMENDATIONS[t.id];
     if (!rec) continue;
@@ -174,6 +233,30 @@ function renderScore(container, scoreData) {
       escapeHtml(scoreData.verdict) +
     '</div>' +
     '<div class="score-description">' + escapeHtml(scoreData.description) + '</div>';
+}
+
+function renderDualScore(container, jitsiScore, ncScore) {
+  function scoreHtml(scoreData) {
+    return '<div class="score-circle ' + scoreData.color + '">' +
+      '<div class="score-number">' + scoreData.totalScore + '</div>' +
+      '<div class="score-label">av 100</div>' +
+    '</div>' +
+    '<div class="score-verdict" style="color:var(--' + (scoreData.color === 'green' ? 'success' : scoreData.color === 'yellow' ? 'warning' : 'danger') + ')">' +
+      escapeHtml(scoreData.verdict) +
+    '</div>';
+  }
+
+  container.innerHTML =
+    '<div class="dual-score">' +
+      '<div class="platform-score-section">' +
+        '<div class="platform-score-title">Jitsi Meet</div>' +
+        scoreHtml(jitsiScore) +
+      '</div>' +
+      '<div class="platform-score-section">' +
+        '<div class="platform-score-title">Nextcloud Talk</div>' +
+        scoreHtml(ncScore) +
+      '</div>' +
+    '</div>';
 }
 
 function renderRecommendations(container, recs) {

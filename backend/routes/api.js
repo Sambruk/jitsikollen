@@ -65,7 +65,13 @@ router.get('/info', (req, res) => {
     turnPort: parseInt(process.env.TURN_PORT) || 3478,
     turnsPort: parseInt(process.env.TURNS_PORT) || 5349,
     jvbPort: parseInt(process.env.JVB_PORT) || 10000,
-    stunUdpTest: process.env.STUN_UDP_TEST !== 'false'
+    stunUdpTest: process.env.STUN_UDP_TEST !== 'false',
+    nextcloudDomain: process.env.NEXTCLOUD_DOMAIN || 'samverka.sambruk.se',
+    ncStunHost: process.env.NC_STUN_HOST || 'stun.nextcloud.com',
+    ncStunPort: parseInt(process.env.NC_STUN_PORT) || 443,
+    ncTurnHost: process.env.NC_TURN_HOST || '',
+    ncTurnPort: parseInt(process.env.NC_TURN_PORT) || 3478,
+    ncTurnsPort: parseInt(process.env.NC_TURNS_PORT) || 5349
   });
 });
 

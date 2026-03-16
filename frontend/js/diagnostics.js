@@ -1,10 +1,12 @@
 // Diagnostics engine - runs all 5 layers of tests
+// Supports Jitsi Meet, Nextcloud Talk, or both platforms
 
 var allTestResults = [];
 var totalTests = 0;
 var completedTests = 0;
-var turnCreds = null; // Populated before layer 2 with real TURN credentials
-var serverInfo = null; // Populated at start with /api/info
+var turnCreds = null;
+var serverInfo = null;
+var selectedPlatform = 'jitsi'; // 'jitsi', 'nextcloud', 'both'
 
 function hasRealCreds() {
   return turnCreds && turnCreds.credentialSource === 'prosody';
@@ -19,54 +21,86 @@ function getIceServer(urlSubstring) {
   return null;
 }
 
+// All test definitions with platform tags: 'shared', 'jitsi', 'nextcloud'
 var TEST_DEFINITIONS = {
   1: [
-    { id: 'webrtc-support', name: 'WebRTC-stöd', category: 'critical' },
-    { id: 'camera-mic', name: 'Kamera/mikrofon', category: 'important' },
-    { id: 'device-enum', name: 'Enhetsupptäckt', category: 'nice' }
+    { id: 'webrtc-support', name: 'WebRTC-stöd', category: 'critical', platform: 'shared' },
+    { id: 'camera-mic', name: 'Kamera/mikrofon', category: 'important', platform: 'shared' },
+    { id: 'device-enum', name: 'Enhetsupptäckt', category: 'nice', platform: 'shared' }
   ],
   2: [
-    { id: 'stun', name: 'STUN', category: 'critical' },
-    { id: 'turn-udp-3478', name: 'TURN UDP 3478', category: 'important' },
-    { id: 'turn-tls-5349', name: 'TURN TLS 5349', category: 'nice' },
-    { id: 'turn-tcp-4443', name: 'TURN TCP 4443', category: 'nice' },
-    { id: 'turn-443-sni', name: 'TURN via 443 (SNI)', category: 'important' },
-    { id: 'turn-tls-443-ext', name: 'TURN TLS 443 (extern)', category: 'nice' }
+    // Jitsi network tests
+    { id: 'stun', name: 'STUN', category: 'critical', platform: 'jitsi' },
+    { id: 'turn-udp-3478', name: 'TURN UDP 3478', category: 'important', platform: 'jitsi' },
+    { id: 'turn-tls-5349', name: 'TURN TLS 5349', category: 'nice', platform: 'jitsi' },
+    { id: 'turn-tcp-4443', name: 'TURN TCP 4443', category: 'nice', platform: 'jitsi' },
+    { id: 'turn-443-sni', name: 'TURN via 443 (SNI)', category: 'important', platform: 'jitsi' },
+    { id: 'turn-tls-443-ext', name: 'TURN TLS 443 (extern)', category: 'nice', platform: 'jitsi' },
+    // Nextcloud Talk network tests
+    { id: 'nc-stun', name: 'STUN (Nextcloud)', category: 'critical', platform: 'nextcloud' },
+    { id: 'nc-turn', name: 'TURN (Nextcloud)', category: 'important', platform: 'nextcloud' }
   ],
   3: [
-    { id: 'ice-candidates', name: 'ICE-kandidater', category: 'critical' },
-    { id: 'peer-connection', name: 'Peer-anslutning', category: 'critical' },
-    { id: 'data-channel', name: 'DataChannel', category: 'important' }
+    { id: 'ice-candidates', name: 'ICE-kandidater', category: 'critical', platform: 'shared' },
+    { id: 'peer-connection', name: 'Peer-anslutning', category: 'critical', platform: 'shared' },
+    { id: 'data-channel', name: 'DataChannel', category: 'important', platform: 'shared' }
   ],
   4: [
-    { id: 'jitsi-https', name: 'HTTPS-åtkomst', category: 'critical' },
-    { id: 'jitsi-websocket', name: 'WebSocket signalering', category: 'important' }
+    // Jitsi platform tests
+    { id: 'jitsi-https', name: 'HTTPS-åtkomst (Jitsi)', category: 'critical', platform: 'jitsi' },
+    { id: 'jitsi-websocket', name: 'WebSocket signalering', category: 'important', platform: 'jitsi' },
+    // Nextcloud Talk platform tests
+    { id: 'nc-https', name: 'HTTPS-åtkomst (Nextcloud)', category: 'critical', platform: 'nextcloud' },
+    { id: 'nc-status', name: 'Nextcloud Talk status', category: 'important', platform: 'nextcloud' }
   ],
   5: [
-    { id: 'bandwidth', name: 'Bandbredd', category: 'nice' },
-    { id: 'latency', name: 'Latens (RTT)', category: 'nice' },
-    { id: 'jitter', name: 'Jitter', category: 'nice' }
+    { id: 'bandwidth', name: 'Bandbredd', category: 'nice', platform: 'shared' },
+    { id: 'latency', name: 'Latens (RTT)', category: 'nice', platform: 'shared' },
+    { id: 'jitter', name: 'Jitter', category: 'nice', platform: 'shared' }
   ]
 };
 
+// Filter tests based on selected platform
+function getActiveTests(layer) {
+  var tests = TEST_DEFINITIONS[layer];
+  if (!tests) return [];
+  return tests.filter(function(t) {
+    if (t.platform === 'shared') return true;
+    if (selectedPlatform === 'both') return true;
+    return t.platform === selectedPlatform;
+  });
+}
+
 function initTestUI() {
-  // Dynamically add UDP 10000 test if enabled
+  // Dynamically add UDP 10000 test if enabled (Jitsi only)
   if (serverInfo && serverInfo.stunUdpTest) {
     var hasUdp = TEST_DEFINITIONS[2].some(function(t) { return t.id === 'udp-10000'; });
     if (!hasUdp) {
-      TEST_DEFINITIONS[2].push({ id: 'udp-10000', name: 'UDP 10000 (JVB)', category: 'important' });
+      // Insert before NC tests
+      var ncIdx = TEST_DEFINITIONS[2].findIndex(function(t) { return t.platform === 'nextcloud'; });
+      if (ncIdx === -1) ncIdx = TEST_DEFINITIONS[2].length;
+      TEST_DEFINITIONS[2].splice(ncIdx, 0, { id: 'udp-10000', name: 'UDP 10000 (JVB)', category: 'important', platform: 'jitsi' });
     }
   }
-  for (var layer in TEST_DEFINITIONS) {
+
+  // Update layer titles based on platform
+  var l4title = document.getElementById('layer-4-title');
+  if (l4title) {
+    if (selectedPlatform === 'jitsi') l4title.textContent = 'Lager 4: Jitsi-specifikt';
+    else if (selectedPlatform === 'nextcloud') l4title.textContent = 'Lager 4: Nextcloud Talk-specifikt';
+    else l4title.textContent = 'Lager 4: Plattformsspecifikt';
+  }
+
+  for (var layer = 1; layer <= 5; layer++) {
     var container = document.getElementById('layer-' + layer + '-items');
     if (!container) continue;
+    var activeTests = getActiveTests(layer);
     var html = '';
-    var tests = TEST_DEFINITIONS[layer];
-    for (var i = 0; i < tests.length; i++) {
+    for (var i = 0; i < activeTests.length; i++) {
       totalTests++;
-      html += '<div class="test-item" id="test-' + tests[i].id + '">' +
-        '<span class="test-name"><span class="dot dot-pending" id="dot-' + tests[i].id + '"></span> ' + escapeHtml(tests[i].name) + '</span>' +
-        '<span class="test-result" id="result-' + tests[i].id + '">Väntar</span>' +
+      html += '<div class="test-item" id="test-' + activeTests[i].id + '">' +
+        '<span class="test-name"><span class="dot dot-pending" id="dot-' + activeTests[i].id + '"></span> ' + escapeHtml(activeTests[i].name) + '</span>' +
+        '<span class="test-result" id="result-' + activeTests[i].id + '">Väntar</span>' +
       '</div>';
     }
     container.innerHTML = html;
@@ -105,24 +139,26 @@ function updateProgress() {
   if (text) text.textContent = completedTests + ' av ' + totalTests + ' tester klara (' + pct + '%)';
 }
 
-function recordResult(id, name, layer, category, status, detail) {
-  allTestResults.push({ id: id, name: name, layer: layer, category: category, status: status, detail: detail || '' });
+function recordResult(id, name, layer, category, status, detail, platform) {
+  allTestResults.push({ id: id, name: name, layer: layer, category: category, status: status, detail: detail || '', platform: platform || 'shared' });
   updateTestUI(id, status, detail);
   updateProgress();
 }
 
 // --- Test implementations ---
 
+// Layer 1: Browser tests (shared)
+
 async function testWebRTCSupport() {
   updateTestUI('webrtc-support', 'running');
   try {
     if (typeof RTCPeerConnection !== 'undefined') {
-      recordResult('webrtc-support', 'WebRTC-stöd', 1, 'critical', 'pass');
+      recordResult('webrtc-support', 'WebRTC-stöd', 1, 'critical', 'pass', '', 'shared');
     } else {
-      recordResult('webrtc-support', 'WebRTC-stöd', 1, 'critical', 'fail', 'RTCPeerConnection saknas');
+      recordResult('webrtc-support', 'WebRTC-stöd', 1, 'critical', 'fail', 'RTCPeerConnection saknas', 'shared');
     }
   } catch (e) {
-    recordResult('webrtc-support', 'WebRTC-stöd', 1, 'critical', 'fail', e.message);
+    recordResult('webrtc-support', 'WebRTC-stöd', 1, 'critical', 'fail', e.message, 'shared');
   }
 }
 
@@ -131,12 +167,12 @@ async function testCameraMic() {
   try {
     var stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
     stream.getTracks().forEach(function(t) { t.stop(); });
-    recordResult('camera-mic', 'Kamera/mikrofon', 1, 'important', 'pass');
+    recordResult('camera-mic', 'Kamera/mikrofon', 1, 'important', 'pass', '', 'shared');
   } catch (e) {
     if (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError') {
-      recordResult('camera-mic', 'Kamera/mikrofon', 1, 'important', 'warn', 'Tillstånd nekades');
+      recordResult('camera-mic', 'Kamera/mikrofon', 1, 'important', 'warn', 'Tillstånd nekades', 'shared');
     } else {
-      recordResult('camera-mic', 'Kamera/mikrofon', 1, 'important', 'fail', e.message);
+      recordResult('camera-mic', 'Kamera/mikrofon', 1, 'important', 'fail', e.message, 'shared');
     }
   }
 }
@@ -148,14 +184,14 @@ async function testDeviceEnum() {
     var audio = devices.filter(function(d) { return d.kind === 'audioinput'; });
     var video = devices.filter(function(d) { return d.kind === 'videoinput'; });
     if (audio.length > 0 && video.length > 0) {
-      recordResult('device-enum', 'Enhetsupptäckt', 1, 'nice', 'pass', audio.length + ' mikrofon, ' + video.length + ' kamera');
+      recordResult('device-enum', 'Enhetsupptäckt', 1, 'nice', 'pass', audio.length + ' mikrofon, ' + video.length + ' kamera', 'shared');
     } else if (audio.length > 0 || video.length > 0) {
-      recordResult('device-enum', 'Enhetsupptäckt', 1, 'nice', 'warn', 'Saknar ' + (audio.length === 0 ? 'mikrofon' : 'kamera'));
+      recordResult('device-enum', 'Enhetsupptäckt', 1, 'nice', 'warn', 'Saknar ' + (audio.length === 0 ? 'mikrofon' : 'kamera'), 'shared');
     } else {
-      recordResult('device-enum', 'Enhetsupptäckt', 1, 'nice', 'fail', 'Inga enheter');
+      recordResult('device-enum', 'Enhetsupptäckt', 1, 'nice', 'fail', 'Inga enheter', 'shared');
     }
   } catch (e) {
-    recordResult('device-enum', 'Enhetsupptäckt', 1, 'nice', 'fail', e.message);
+    recordResult('device-enum', 'Enhetsupptäckt', 1, 'nice', 'fail', e.message, 'shared');
   }
 }
 
@@ -210,7 +246,6 @@ function testICEConnectivity(testId, testName, layer, category, iceConfig, expec
       }
     };
 
-    // Create data channel to trigger ICE gathering
     pc.createDataChannel('test');
     pc.createOffer().then(function(offer) {
       return pc.setLocalDescription(offer);
@@ -224,10 +259,15 @@ function testICEConnectivity(testId, testName, layer, category, iceConfig, expec
   });
 }
 
+// Layer 2: Jitsi network tests
+
 async function testSTUN() {
   await testICEConnectivity('stun', 'STUN', 2, 'critical', {
     iceServers: [{ urls: 'stun:meet.sambruk.nu:3478' }]
   }, 'srflx', 8000);
+  // Tag platform
+  var r = allTestResults[allTestResults.length - 1];
+  if (r && r.id === 'stun') r.platform = 'jitsi';
 }
 
 async function testTURN_UDP() {
@@ -237,13 +277,16 @@ async function testTURN_UDP() {
       await testICEConnectivity('turn-udp-3478', 'TURN UDP 3478', 2, 'important', {
         iceServers: [server], iceTransportPolicy: 'relay'
       }, 'relay', 10000);
+      var r = allTestResults[allTestResults.length - 1];
+      if (r && r.id === 'turn-udp-3478') r.platform = 'jitsi';
       return;
     }
   }
-  // Fallback: STUN binding test
   await testICEConnectivity('turn-udp-3478', 'TURN UDP 3478', 2, 'important', {
     iceServers: [{ urls: 'stun:meet.sambruk.nu:3478' }]
   }, 'srflx', 8000);
+  var r = allTestResults[allTestResults.length - 1];
+  if (r && r.id === 'turn-udp-3478') r.platform = 'jitsi';
 }
 
 async function testTURN_TLS() {
@@ -253,17 +296,18 @@ async function testTURN_TLS() {
       await testICEConnectivity('turn-tls-5349', 'TURN TLS 5349', 2, 'nice', {
         iceServers: [server], iceTransportPolicy: 'relay'
       }, 'relay', 10000);
+      var r = allTestResults[allTestResults.length - 1];
+      if (r && r.id === 'turn-tls-5349') r.platform = 'jitsi';
       return;
     }
   }
-  // Fallback: STUN-proxy
   updateTestUI('turn-tls-5349', 'running');
   var stunResult = allTestResults.find(function(r) { return r.id === 'stun'; });
   if (stunResult && stunResult.status === 'pass') {
     recordResult('turn-tls-5349', 'TURN TLS 5349', 2, 'nice', 'warn',
-      'Inga TURN-uppgifter, TLS-port ej verifierbar');
+      'Inga TURN-uppgifter, TLS-port ej verifierbar', 'jitsi');
   } else {
-    recordResult('turn-tls-5349', 'TURN TLS 5349', 2, 'nice', 'fail', 'TURN-server ej nåbar');
+    recordResult('turn-tls-5349', 'TURN TLS 5349', 2, 'nice', 'fail', 'TURN-server ej nåbar', 'jitsi');
   }
 }
 
@@ -274,17 +318,18 @@ async function testTURN_TCP_4443() {
       await testICEConnectivity('turn-tcp-4443', 'TURN TCP 4443', 2, 'nice', {
         iceServers: [server], iceTransportPolicy: 'relay'
       }, 'relay', 10000, 'warn');
+      var r = allTestResults[allTestResults.length - 1];
+      if (r && r.id === 'turn-tcp-4443') r.platform = 'jitsi';
       return;
     }
   }
-  // Fallback: STUN-proxy
   updateTestUI('turn-tcp-4443', 'running');
   var stunResult = allTestResults.find(function(r) { return r.id === 'stun'; });
   if (stunResult && stunResult.status === 'pass') {
     recordResult('turn-tcp-4443', 'TURN TCP 4443', 2, 'nice', 'warn',
-      'Inga TURN-uppgifter, TCP-port ej verifierbar');
+      'Inga TURN-uppgifter, TCP-port ej verifierbar', 'jitsi');
   } else {
-    recordResult('turn-tcp-4443', 'TURN TCP 4443', 2, 'nice', 'fail', 'TURN-server ej nåbar');
+    recordResult('turn-tcp-4443', 'TURN TCP 4443', 2, 'nice', 'fail', 'TURN-server ej nåbar', 'jitsi');
   }
 }
 
@@ -295,17 +340,18 @@ async function testTURN_443_SNI() {
       await testICEConnectivity('turn-443-sni', 'TURN via 443 (SNI)', 2, 'important', {
         iceServers: [server], iceTransportPolicy: 'relay'
       }, 'relay', 10000, 'warn');
+      var r = allTestResults[allTestResults.length - 1];
+      if (r && r.id === 'turn-443-sni') r.platform = 'jitsi';
       return;
     }
   }
-  // Fallback: STUN-proxy
   updateTestUI('turn-443-sni', 'running');
   var stunResult = allTestResults.find(function(r) { return r.id === 'stun'; });
   if (stunResult && stunResult.status === 'pass') {
     recordResult('turn-443-sni', 'TURN via 443 (SNI)', 2, 'important', 'warn',
-      'Inga TURN-uppgifter, SNI-routing ej verifierbar');
+      'Inga TURN-uppgifter, SNI-routing ej verifierbar', 'jitsi');
   } else {
-    recordResult('turn-443-sni', 'TURN via 443 (SNI)', 2, 'important', 'fail', 'TURN-server ej nåbar');
+    recordResult('turn-443-sni', 'TURN via 443 (SNI)', 2, 'important', 'fail', 'TURN-server ej nåbar', 'jitsi');
   }
 }
 
@@ -313,18 +359,47 @@ async function testTURN_443_EXT() {
   await testICEConnectivity('turn-tls-443-ext', 'TURN TLS 443 (extern)', 2, 'nice', {
     iceServers: [{ urls: 'stun:meet-jit-si-turnrelay.jitsi.net:443' }]
   }, 'srflx', 8000);
+  var r = allTestResults[allTestResults.length - 1];
+  if (r && r.id === 'turn-tls-443-ext') r.platform = 'jitsi';
 }
 
 async function testUDP10000() {
-  // Real test: STUN binding request to a dedicated STUN server on UDP 10000
-  // hosted on the same infrastructure. Proves client can send UDP to port 10000.
   var stunHost = window.location.hostname;
   await testICEConnectivity('udp-10000', 'UDP 10000 (JVB)', 2, 'important', {
     iceServers: [{ urls: 'stun:' + stunHost + ':10000' }]
   }, 'srflx', 8000);
+  var r = allTestResults[allTestResults.length - 1];
+  if (r && r.id === 'udp-10000') r.platform = 'jitsi';
 }
 
-// Layer 3: WebRTC tests
+// Layer 2: Nextcloud Talk network tests
+
+async function testNCStun() {
+  var stunHost = serverInfo ? serverInfo.ncStunHost : 'stun.nextcloud.com';
+  var stunPort = serverInfo ? serverInfo.ncStunPort : 443;
+  await testICEConnectivity('nc-stun', 'STUN (Nextcloud)', 2, 'critical', {
+    iceServers: [{ urls: 'stun:' + stunHost + ':' + stunPort }]
+  }, 'srflx', 8000);
+  var r = allTestResults[allTestResults.length - 1];
+  if (r && r.id === 'nc-stun') r.platform = 'nextcloud';
+}
+
+async function testNCTurn() {
+  updateTestUI('nc-turn', 'running');
+  var turnHost = serverInfo ? serverInfo.ncTurnHost : '';
+  if (!turnHost) {
+    recordResult('nc-turn', 'TURN (Nextcloud)', 2, 'important', 'warn', 'Ingen TURN konfigurerad', 'nextcloud');
+    return;
+  }
+  var turnPort = serverInfo ? serverInfo.ncTurnPort : 3478;
+  await testICEConnectivity('nc-turn', 'TURN (Nextcloud)', 2, 'important', {
+    iceServers: [{ urls: 'stun:' + turnHost + ':' + turnPort }]
+  }, 'srflx', 8000);
+  var r = allTestResults[allTestResults.length - 1];
+  if (r && r.id === 'nc-turn') r.platform = 'nextcloud';
+}
+
+// Layer 3: WebRTC tests (shared)
 
 async function testICECandidates() {
   updateTestUI('ice-candidates', 'running');
@@ -364,14 +439,14 @@ async function testICECandidates() {
     var detail = 'host:' + candidates.host + ' srflx:' + candidates.srflx + ' relay:' + candidates.relay;
 
     if (candidates.relay > 0 || candidates.srflx > 0) {
-      recordResult('ice-candidates', 'ICE-kandidater', 3, 'critical', 'pass', detail);
+      recordResult('ice-candidates', 'ICE-kandidater', 3, 'critical', 'pass', detail, 'shared');
     } else if (candidates.host > 0) {
-      recordResult('ice-candidates', 'ICE-kandidater', 3, 'critical', 'warn', 'Bara host: ' + detail);
+      recordResult('ice-candidates', 'ICE-kandidater', 3, 'critical', 'warn', 'Bara host: ' + detail, 'shared');
     } else {
-      recordResult('ice-candidates', 'ICE-kandidater', 3, 'critical', 'fail', 'Inga kandidater');
+      recordResult('ice-candidates', 'ICE-kandidater', 3, 'critical', 'fail', 'Inga kandidater', 'shared');
     }
   } catch (e) {
-    recordResult('ice-candidates', 'ICE-kandidater', 3, 'critical', 'fail', e.message);
+    recordResult('ice-candidates', 'ICE-kandidater', 3, 'critical', 'fail', e.message, 'shared');
   }
 }
 
@@ -384,7 +459,7 @@ async function testPeerConnection() {
     await new Promise(function(resolve) {
       var timer = setTimeout(function() {
         if (!connected) {
-          recordResult('peer-connection', 'Peer-anslutning', 3, 'critical', 'fail', 'Timeout');
+          recordResult('peer-connection', 'Peer-anslutning', 3, 'critical', 'fail', 'Timeout', 'shared');
         }
         try { ws.close(); } catch(e) {}
         resolve();
@@ -405,7 +480,7 @@ async function testPeerConnection() {
             if (pc.connectionState === 'connected' && !connected) {
               connected = true;
               clearTimeout(timer);
-              recordResult('peer-connection', 'Peer-anslutning', 3, 'critical', 'pass');
+              recordResult('peer-connection', 'Peer-anslutning', 3, 'critical', 'pass', '', 'shared');
               try { pc.close(); ws.close(); } catch(e) {}
               resolve();
             }
@@ -421,11 +496,10 @@ async function testPeerConnection() {
             var msg = JSON.parse(evt.data);
             if (msg.type === 'answer') {
               pc.setRemoteDescription({ type: 'answer', sdp: msg.sdp }).catch(function() {});
-              // In signaling-only mode, consider it a pass for the signaling part
               if (msg.mode === 'signaling-only' && !connected) {
                 connected = true;
                 clearTimeout(timer);
-                recordResult('peer-connection', 'Peer-anslutning', 3, 'critical', 'pass', 'Signalering OK');
+                recordResult('peer-connection', 'Peer-anslutning', 3, 'critical', 'pass', 'Signalering OK', 'shared');
                 try { pc.close(); ws.close(); } catch(e) {}
                 resolve();
               }
@@ -436,7 +510,7 @@ async function testPeerConnection() {
         } catch (e) {
           if (!connected) {
             clearTimeout(timer);
-            recordResult('peer-connection', 'Peer-anslutning', 3, 'critical', 'fail', e.message);
+            recordResult('peer-connection', 'Peer-anslutning', 3, 'critical', 'fail', e.message, 'shared');
             resolve();
           }
         }
@@ -445,13 +519,13 @@ async function testPeerConnection() {
       ws.onerror = function() {
         if (!connected) {
           clearTimeout(timer);
-          recordResult('peer-connection', 'Peer-anslutning', 3, 'critical', 'fail', 'WebSocket-fel');
+          recordResult('peer-connection', 'Peer-anslutning', 3, 'critical', 'fail', 'WebSocket-fel', 'shared');
           resolve();
         }
       };
     });
   } catch (e) {
-    recordResult('peer-connection', 'Peer-anslutning', 3, 'critical', 'fail', e.message);
+    recordResult('peer-connection', 'Peer-anslutning', 3, 'critical', 'fail', e.message, 'shared');
   }
 }
 
@@ -464,7 +538,7 @@ async function testDataChannel() {
     await new Promise(function(resolve) {
       var timer = setTimeout(function() {
         if (!success) {
-          recordResult('data-channel', 'DataChannel', 3, 'important', 'fail', 'Timeout');
+          recordResult('data-channel', 'DataChannel', 3, 'important', 'fail', 'Timeout', 'shared');
         }
         try { ws.close(); } catch(e) {}
         resolve();
@@ -490,7 +564,7 @@ async function testDataChannel() {
             if (!success) {
               success = true;
               clearTimeout(timer);
-              recordResult('data-channel', 'DataChannel', 3, 'important', 'pass', 'Echo mottagen');
+              recordResult('data-channel', 'DataChannel', 3, 'important', 'pass', 'Echo mottagen', 'shared');
               try { pc.close(); ws.close(); } catch(e) {}
               resolve();
             }
@@ -503,12 +577,10 @@ async function testDataChannel() {
           ws.onmessage = function(evt) {
             var msg = JSON.parse(evt.data);
             if (msg.type === 'answer') {
-              // Check signaling-only BEFORE setRemoteDescription
-              // (synthetic SDP lacks ICE/DTLS fields so setRemoteDescription will fail)
               if (msg.mode === 'signaling-only' && !success) {
                 success = true;
                 clearTimeout(timer);
-                recordResult('data-channel', 'DataChannel', 3, 'important', 'pass', 'Signalering OK');
+                recordResult('data-channel', 'DataChannel', 3, 'important', 'pass', 'Signalering OK', 'shared');
                 try { pc.close(); ws.close(); } catch(e) {}
                 resolve();
                 return;
@@ -521,7 +593,7 @@ async function testDataChannel() {
         } catch (e) {
           if (!success) {
             clearTimeout(timer);
-            recordResult('data-channel', 'DataChannel', 3, 'important', 'fail', e.message);
+            recordResult('data-channel', 'DataChannel', 3, 'important', 'fail', e.message, 'shared');
             resolve();
           }
         }
@@ -530,13 +602,13 @@ async function testDataChannel() {
       ws.onerror = function() {
         if (!success) {
           clearTimeout(timer);
-          recordResult('data-channel', 'DataChannel', 3, 'important', 'fail', 'WebSocket-fel');
+          recordResult('data-channel', 'DataChannel', 3, 'important', 'fail', 'WebSocket-fel', 'shared');
           resolve();
         }
       };
     });
   } catch (e) {
-    recordResult('data-channel', 'DataChannel', 3, 'important', 'fail', e.message);
+    recordResult('data-channel', 'DataChannel', 3, 'important', 'fail', e.message, 'shared');
   }
 }
 
@@ -552,13 +624,11 @@ async function testJitsiWebSocket() {
       var timer = setTimeout(function() {
         if (!done) {
           done = true;
-          // Cross-origin WS from a different domain always fails in browsers.
-          // In real Jitsi the client runs on meet.sambruk.nu (same origin), so WS works.
           var httpsResult = allTestResults.find(function(r) { return r.id === 'jitsi-https'; });
           if (httpsResult && httpsResult.status === 'pass') {
-            recordResult('jitsi-websocket', 'WebSocket signalering', 4, 'important', 'pass');
+            recordResult('jitsi-websocket', 'WebSocket signalering', 4, 'important', 'pass', '', 'jitsi');
           } else {
-            recordResult('jitsi-websocket', 'WebSocket signalering', 4, 'important', 'fail', 'Timeout');
+            recordResult('jitsi-websocket', 'WebSocket signalering', 4, 'important', 'fail', 'Timeout', 'jitsi');
           }
           try { ws.close(); } catch(e) {}
         }
@@ -569,7 +639,7 @@ async function testJitsiWebSocket() {
         if (!done) {
           done = true;
           clearTimeout(timer);
-          recordResult('jitsi-websocket', 'WebSocket signalering', 4, 'important', 'pass');
+          recordResult('jitsi-websocket', 'WebSocket signalering', 4, 'important', 'pass', '', 'jitsi');
           try { ws.close(); } catch(e) {}
         }
         resolve();
@@ -581,16 +651,16 @@ async function testJitsiWebSocket() {
           clearTimeout(timer);
           var httpsResult = allTestResults.find(function(r) { return r.id === 'jitsi-https'; });
           if (httpsResult && httpsResult.status === 'pass') {
-            recordResult('jitsi-websocket', 'WebSocket signalering', 4, 'important', 'pass');
+            recordResult('jitsi-websocket', 'WebSocket signalering', 4, 'important', 'pass', '', 'jitsi');
           } else {
-            recordResult('jitsi-websocket', 'WebSocket signalering', 4, 'important', 'fail', 'Anslutningsfel');
+            recordResult('jitsi-websocket', 'WebSocket signalering', 4, 'important', 'fail', 'Anslutningsfel', 'jitsi');
           }
         }
         resolve();
       };
     });
   } catch (e) {
-    recordResult('jitsi-websocket', 'WebSocket signalering', 4, 'important', 'fail', e.message);
+    recordResult('jitsi-websocket', 'WebSocket signalering', 4, 'important', 'fail', e.message, 'jitsi');
   }
 }
 
@@ -606,14 +676,74 @@ async function testJitsiHTTPS() {
       signal: controller.signal
     });
     clearTimeout(timer);
-    // no-cors means we can't read status, but if we get here without error it's reachable
-    recordResult('jitsi-https', 'HTTPS-åtkomst', 4, 'critical', 'pass');
+    recordResult('jitsi-https', 'HTTPS-åtkomst (Jitsi)', 4, 'critical', 'pass', '', 'jitsi');
   } catch (e) {
-    recordResult('jitsi-https', 'HTTPS-åtkomst', 4, 'critical', 'fail', e.name === 'AbortError' ? 'Timeout' : e.message);
+    recordResult('jitsi-https', 'HTTPS-åtkomst (Jitsi)', 4, 'critical', 'fail', e.name === 'AbortError' ? 'Timeout' : e.message, 'jitsi');
   }
 }
 
-// Layer 5: Quality tests
+// Layer 4: Nextcloud Talk-specific tests
+
+async function testNCHTTPS() {
+  updateTestUI('nc-https', 'running');
+  var ncDomain = serverInfo ? serverInfo.nextcloudDomain : 'samverka.sambruk.se';
+  try {
+    var controller = new AbortController();
+    var timer = setTimeout(function() { controller.abort(); }, 8000);
+
+    await fetch('https://' + ncDomain + '/', {
+      method: 'HEAD',
+      mode: 'no-cors',
+      signal: controller.signal
+    });
+    clearTimeout(timer);
+    recordResult('nc-https', 'HTTPS-åtkomst (Nextcloud)', 4, 'critical', 'pass', '', 'nextcloud');
+  } catch (e) {
+    recordResult('nc-https', 'HTTPS-åtkomst (Nextcloud)', 4, 'critical', 'fail', e.name === 'AbortError' ? 'Timeout' : e.message, 'nextcloud');
+  }
+}
+
+async function testNCStatus() {
+  updateTestUI('nc-status', 'running');
+  var ncDomain = serverInfo ? serverInfo.nextcloudDomain : 'samverka.sambruk.se';
+  try {
+    var controller = new AbortController();
+    var timer = setTimeout(function() { controller.abort(); }, 8000);
+
+    var resp = await fetch('https://' + ncDomain + '/status.php', {
+      signal: controller.signal
+    });
+    clearTimeout(timer);
+
+    if (resp.ok) {
+      try {
+        var data = await resp.json();
+        if (data.installed) {
+          var ver = data.versionstring || '';
+          recordResult('nc-status', 'Nextcloud Talk status', 4, 'important', 'pass',
+            (data.productname || 'Nextcloud') + (ver ? ' ' + ver : ''), 'nextcloud');
+        } else {
+          recordResult('nc-status', 'Nextcloud Talk status', 4, 'important', 'warn', 'Nextcloud ej installerad', 'nextcloud');
+        }
+      } catch (jsonErr) {
+        recordResult('nc-status', 'Nextcloud Talk status', 4, 'important', 'pass', 'Nextcloud svarar', 'nextcloud');
+      }
+    } else {
+      recordResult('nc-status', 'Nextcloud Talk status', 4, 'important', 'warn', 'HTTP ' + resp.status, 'nextcloud');
+    }
+  } catch (e) {
+    // CORS may block status.php reading - fall back to HTTPS result
+    var httpsResult = allTestResults.find(function(r) { return r.id === 'nc-https'; });
+    if (httpsResult && httpsResult.status === 'pass') {
+      recordResult('nc-status', 'Nextcloud Talk status', 4, 'important', 'pass', 'HTTPS nåbar', 'nextcloud');
+    } else {
+      recordResult('nc-status', 'Nextcloud Talk status', 4, 'important', 'fail',
+        e.name === 'AbortError' ? 'Timeout' : 'Ej nåbar', 'nextcloud');
+    }
+  }
+}
+
+// Layer 5: Quality tests (shared)
 
 async function testBandwidth() {
   updateTestUI('bandwidth', 'running');
@@ -621,18 +751,18 @@ async function testBandwidth() {
     var start = performance.now();
     var resp = await apiFetch('/bandwidth/download');
     var data = await resp.arrayBuffer();
-    var duration = (performance.now() - start) / 1000; // seconds
+    var duration = (performance.now() - start) / 1000;
     var mbps = ((data.byteLength * 8) / duration) / 1000000;
 
     if (mbps >= 2) {
-      recordResult('bandwidth', 'Bandbredd', 5, 'nice', 'pass', mbps.toFixed(1) + ' Mbps');
+      recordResult('bandwidth', 'Bandbredd', 5, 'nice', 'pass', mbps.toFixed(1) + ' Mbps', 'shared');
     } else if (mbps >= 0.5) {
-      recordResult('bandwidth', 'Bandbredd', 5, 'nice', 'warn', mbps.toFixed(1) + ' Mbps');
+      recordResult('bandwidth', 'Bandbredd', 5, 'nice', 'warn', mbps.toFixed(1) + ' Mbps', 'shared');
     } else {
-      recordResult('bandwidth', 'Bandbredd', 5, 'nice', 'fail', mbps.toFixed(1) + ' Mbps');
+      recordResult('bandwidth', 'Bandbredd', 5, 'nice', 'fail', mbps.toFixed(1) + ' Mbps', 'shared');
     }
   } catch (e) {
-    recordResult('bandwidth', 'Bandbredd', 5, 'nice', 'fail', e.message);
+    recordResult('bandwidth', 'Bandbredd', 5, 'nice', 'fail', e.message, 'shared');
   }
 }
 
@@ -648,17 +778,16 @@ async function testLatency() {
     var avg = rtts.reduce(function(a, b) { return a + b; }, 0) / rtts.length;
 
     if (avg < 100) {
-      recordResult('latency', 'Latens (RTT)', 5, 'nice', 'pass', Math.round(avg) + ' ms');
+      recordResult('latency', 'Latens (RTT)', 5, 'nice', 'pass', Math.round(avg) + ' ms', 'shared');
     } else if (avg < 300) {
-      recordResult('latency', 'Latens (RTT)', 5, 'nice', 'warn', Math.round(avg) + ' ms');
+      recordResult('latency', 'Latens (RTT)', 5, 'nice', 'warn', Math.round(avg) + ' ms', 'shared');
     } else {
-      recordResult('latency', 'Latens (RTT)', 5, 'nice', 'fail', Math.round(avg) + ' ms');
+      recordResult('latency', 'Latens (RTT)', 5, 'nice', 'fail', Math.round(avg) + ' ms', 'shared');
     }
 
-    // Store RTTs for jitter calculation
     window._latencyRTTs = rtts;
   } catch (e) {
-    recordResult('latency', 'Latens (RTT)', 5, 'nice', 'fail', e.message);
+    recordResult('latency', 'Latens (RTT)', 5, 'nice', 'fail', e.message, 'shared');
   }
 }
 
@@ -667,11 +796,10 @@ async function testJitter() {
   try {
     var rtts = window._latencyRTTs;
     if (!rtts || rtts.length < 2) {
-      recordResult('jitter', 'Jitter', 5, 'nice', 'fail', 'Saknar latensdata');
+      recordResult('jitter', 'Jitter', 5, 'nice', 'fail', 'Saknar latensdata', 'shared');
       return;
     }
 
-    // Jitter = average difference between consecutive RTTs
     var diffs = [];
     for (var i = 1; i < rtts.length; i++) {
       diffs.push(Math.abs(rtts[i] - rtts[i - 1]));
@@ -679,24 +807,60 @@ async function testJitter() {
     var jitter = diffs.reduce(function(a, b) { return a + b; }, 0) / diffs.length;
 
     if (jitter < 30) {
-      recordResult('jitter', 'Jitter', 5, 'nice', 'pass', Math.round(jitter) + ' ms');
+      recordResult('jitter', 'Jitter', 5, 'nice', 'pass', Math.round(jitter) + ' ms', 'shared');
     } else if (jitter < 100) {
-      recordResult('jitter', 'Jitter', 5, 'nice', 'warn', Math.round(jitter) + ' ms');
+      recordResult('jitter', 'Jitter', 5, 'nice', 'warn', Math.round(jitter) + ' ms', 'shared');
     } else {
-      recordResult('jitter', 'Jitter', 5, 'nice', 'fail', Math.round(jitter) + ' ms');
+      recordResult('jitter', 'Jitter', 5, 'nice', 'fail', Math.round(jitter) + ' ms', 'shared');
     }
   } catch (e) {
-    recordResult('jitter', 'Jitter', 5, 'nice', 'fail', e.message);
+    recordResult('jitter', 'Jitter', 5, 'nice', 'fail', e.message, 'shared');
   }
 }
 
+// --- Test function mapping ---
+
+var TEST_FUNCTIONS = {
+  // Layer 1 (shared)
+  'webrtc-support': testWebRTCSupport,
+  'camera-mic': testCameraMic,
+  'device-enum': testDeviceEnum,
+  // Layer 2 (jitsi)
+  'stun': testSTUN,
+  'turn-udp-3478': testTURN_UDP,
+  'turn-tls-5349': testTURN_TLS,
+  'turn-tcp-4443': testTURN_TCP_4443,
+  'turn-443-sni': testTURN_443_SNI,
+  'turn-tls-443-ext': testTURN_443_EXT,
+  'udp-10000': testUDP10000,
+  // Layer 2 (nextcloud)
+  'nc-stun': testNCStun,
+  'nc-turn': testNCTurn,
+  // Layer 3 (shared)
+  'ice-candidates': testICECandidates,
+  'peer-connection': testPeerConnection,
+  'data-channel': testDataChannel,
+  // Layer 4 (jitsi)
+  'jitsi-https': testJitsiHTTPS,
+  'jitsi-websocket': testJitsiWebSocket,
+  // Layer 4 (nextcloud)
+  'nc-https': testNCHTTPS,
+  'nc-status': testNCStatus,
+  // Layer 5 (shared)
+  'bandwidth': testBandwidth,
+  'latency': testLatency,
+  'jitter': testJitter
+};
+
 // --- Main orchestrator ---
 
-async function runLayer(layerNum, tests) {
+async function runLayer(layerNum) {
   updateLayerStatus(layerNum, 'running');
+  var activeTests = getActiveTests(layerNum);
 
-  for (var i = 0; i < tests.length; i++) {
-    await tests[i]();
+  for (var i = 0; i < activeTests.length; i++) {
+    var fn = TEST_FUNCTIONS[activeTests[i].id];
+    if (fn) await fn();
   }
 
   // Determine layer status from results
@@ -718,47 +882,79 @@ async function startDiagnostics() {
   totalTests = 0;
   completedTests = 0;
 
+  // Get selected platform
+  var platformRadio = document.querySelector('input[name="platform"]:checked');
+  selectedPlatform = platformRadio ? platformRadio.value : 'jitsi';
+
   document.getElementById('test-setup').style.display = 'none';
   document.getElementById('test-running').style.display = '';
   document.getElementById('test-complete').style.display = 'none';
 
-  // Fetch server info (controls which tests to run)
+  // Fetch server info
   try { serverInfo = await apiJSON('/info'); } catch (e) { serverInfo = null; }
 
   initTestUI();
 
-  // Run layers sequentially
-  await runLayer(1, [testWebRTCSupport, testCameraMic, testDeviceEnum]);
+  // Layer 1: Browser (shared)
+  await runLayer(1);
 
-  // Fetch TURN credentials before layer 2 (real credentials from Prosody)
-  try { turnCreds = await apiJSON('/turn-credentials'); } catch (e) { turnCreds = null; }
-
-  var layer2Tests = [testSTUN, testTURN_UDP, testTURN_TLS, testTURN_TCP_4443, testTURN_443_SNI, testTURN_443_EXT];
-  if (serverInfo && serverInfo.stunUdpTest) {
-    layer2Tests.push(testUDP10000);
+  // Fetch TURN credentials before layer 2 (for Jitsi tests)
+  if (selectedPlatform === 'jitsi' || selectedPlatform === 'both') {
+    try { turnCreds = await apiJSON('/turn-credentials'); } catch (e) { turnCreds = null; }
   }
-  await runLayer(2, layer2Tests);
-  await runLayer(3, [testICECandidates, testPeerConnection, testDataChannel]);
-  await runLayer(4, [testJitsiHTTPS, testJitsiWebSocket]);
-  await runLayer(5, [testBandwidth, testLatency, testJitter]);
 
-  // Calculate score
-  var scoreData = calculateScore(allTestResults);
-  var recs = getRecommendations(allTestResults);
+  // Layer 2: Network
+  await runLayer(2);
+
+  // Layer 3: WebRTC (shared)
+  await runLayer(3);
+
+  // Layer 4: Platform-specific
+  await runLayer(4);
+
+  // Layer 5: Quality (shared)
+  await runLayer(5);
+
+  // Calculate score(s)
+  var scoreDisplay = document.getElementById('score-display');
+
+  if (selectedPlatform === 'both') {
+    var jitsiScore = calculateScore(allTestResults, 'jitsi');
+    var ncScore = calculateScore(allTestResults, 'nextcloud');
+    renderDualScore(scoreDisplay, jitsiScore, ncScore);
+
+    // Combined recommendations
+    var jitsiRecs = getRecommendations(allTestResults, 'jitsi');
+    var ncRecs = getRecommendations(allTestResults, 'nextcloud');
+    var allRecs = jitsiRecs.concat(ncRecs);
+    var recsCard = document.getElementById('recommendations-card');
+    renderRecommendations(recsCard, allRecs);
+
+    // Save the lower score for stats
+    var saveScore = Math.min(jitsiScore.totalScore, ncScore.totalScore);
+    var saveRating = saveScore >= 80 ? 'green' : (saveScore >= 40 ? 'yellow' : 'red');
+    saveResult(saveScore, saveRating);
+  } else {
+    var scoreData = calculateScore(allTestResults, selectedPlatform);
+    var recs = getRecommendations(allTestResults, selectedPlatform);
+
+    renderScore(scoreDisplay, scoreData);
+
+    var recsCard = document.getElementById('recommendations-card');
+    renderRecommendations(recsCard, recs);
+
+    saveResult(scoreData.totalScore, scoreData.rating);
+  }
 
   // Show results
   document.getElementById('test-complete').style.display = '';
 
-  renderScore(document.getElementById('score-display'), scoreData);
-
-  var recsCard = document.getElementById('recommendations-card');
-  renderRecommendations(recsCard, recs);
-
   // Update progress text
   var text = document.getElementById('progress-text');
   if (text) text.textContent = 'Alla tester klara!';
+}
 
-  // Save result to database, then fetch and show global stats
+function saveResult(totalScore, rating) {
   if (typeof apiJSON === 'function') {
     var orgEl = document.getElementById('org-name');
     var orgName = orgEl ? orgEl.value.trim() : '';
@@ -767,8 +963,9 @@ async function startDiagnostics() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         organization: orgName || null,
-        totalScore: scoreData.totalScore,
-        rating: scoreData.rating,
+        totalScore: totalScore,
+        rating: rating,
+        platform: selectedPlatform,
         results: allTestResults
       })
     }).then(function() {
@@ -787,25 +984,24 @@ async function startDiagnostics() {
 // --- Word export ---
 
 function exportResultWord() {
-  var scoreData = calculateScore(allTestResults);
-  var recs = getRecommendations(allTestResults);
   var orgName = document.getElementById('org-name').value.trim();
   var dateStr = new Date().toLocaleDateString('sv-SE', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
   var colorMap = { green: '#0d9e0d', yellow: '#f59e0b', red: '#dc2626' };
-  var verdictMap = { green: 'Jitsi fungerar bra', yellow: 'Jitsi fungerar med begränsningar', red: 'Jitsi fungerar inte' };
   var statusLabel = { pass: 'Godkänd', warn: 'Varning', fail: 'Underkänd' };
   var statusColor = { pass: '#0d9e0d', warn: '#f59e0b', fail: '#dc2626' };
   var layerNames = {
     1: 'Lager 1: Webbläsare & Enheter',
     2: 'Lager 2: Nätverksanslutning',
     3: 'Lager 3: WebRTC-anslutning',
-    4: 'Lager 4: Jitsi-specifikt',
+    4: 'Lager 4: Plattformsspecifikt',
     5: 'Lager 5: Kvalitet'
   };
 
+  var platformNames = { jitsi: 'Jitsi Meet (meet.sambruk.nu)', nextcloud: 'Nextcloud Talk (samverka.sambruk.se)', both: 'Jitsi Meet & Nextcloud Talk' };
+
   var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">';
-  html += '<head><meta charset="utf-8"><title>Jitsi-kollen Rapport</title>';
+  html += '<head><meta charset="utf-8"><title>Videomötes-kollen Rapport</title>';
   html += '<style>body{font-family:Calibri,Arial,sans-serif;color:#1e293b;margin:2cm;}';
   html += 'table{border-collapse:collapse;width:100%;margin:1em 0;}';
   html += 'th,td{border:1px solid #ccc;padding:6px 10px;text-align:left;font-size:10pt;}';
@@ -821,15 +1017,30 @@ function exportResultWord() {
   html += '</style></head><body>';
 
   // Header
-  html += '<h1>Jitsi-kollen &mdash; Diagnostikrapport</h1>';
+  html += '<h1>Videomötes-kollen &mdash; Diagnostikrapport</h1>';
   html += '<p><strong>Datum:</strong> ' + escapeHtml(dateStr) + '</p>';
   if (orgName) html += '<p><strong>Organisation:</strong> ' + escapeHtml(orgName) + '</p>';
-  html += '<p><strong>Tjänst:</strong> meet.sambruk.nu</p>';
+  html += '<p><strong>Tjänst:</strong> ' + escapeHtml(platformNames[selectedPlatform] || selectedPlatform) + '</p>';
 
-  // Score
-  var scoreColor = colorMap[scoreData.rating] || '#1e293b';
-  html += '<div class="score" style="color:' + scoreColor + ';">' + scoreData.totalScore + ' / 100</div>';
-  html += '<div class="verdict" style="color:' + scoreColor + ';">' + (verdictMap[scoreData.rating] || '') + '</div>';
+  // Score(s)
+  if (selectedPlatform === 'both') {
+    var jitsiScore = calculateScore(allTestResults, 'jitsi');
+    var ncScore = calculateScore(allTestResults, 'nextcloud');
+
+    html += '<table style="width:60%;margin:1em auto;"><tr>';
+    html += '<td style="text-align:center;border:none;"><h3>Jitsi Meet</h3>';
+    html += '<div class="score" style="color:' + (colorMap[jitsiScore.rating] || '#1e293b') + ';">' + jitsiScore.totalScore + ' / 100</div>';
+    html += '<div class="verdict" style="color:' + (colorMap[jitsiScore.rating] || '#1e293b') + ';">' + escapeHtml(jitsiScore.verdict) + '</div></td>';
+    html += '<td style="text-align:center;border:none;"><h3>Nextcloud Talk</h3>';
+    html += '<div class="score" style="color:' + (colorMap[ncScore.rating] || '#1e293b') + ';">' + ncScore.totalScore + ' / 100</div>';
+    html += '<div class="verdict" style="color:' + (colorMap[ncScore.rating] || '#1e293b') + ';">' + escapeHtml(ncScore.verdict) + '</div></td>';
+    html += '</tr></table>';
+  } else {
+    var scoreData = calculateScore(allTestResults, selectedPlatform);
+    var scoreColor = colorMap[scoreData.rating] || '#1e293b';
+    html += '<div class="score" style="color:' + scoreColor + ';">' + scoreData.totalScore + ' / 100</div>';
+    html += '<div class="verdict" style="color:' + scoreColor + ';">' + escapeHtml(scoreData.verdict) + '</div>';
+  }
 
   // Results table per layer
   html += '<h2>Testresultat</h2>';
@@ -849,6 +1060,13 @@ function exportResultWord() {
   }
 
   // Recommendations
+  var recs;
+  if (selectedPlatform === 'both') {
+    recs = getRecommendations(allTestResults, 'jitsi').concat(getRecommendations(allTestResults, 'nextcloud'));
+  } else {
+    recs = getRecommendations(allTestResults, selectedPlatform);
+  }
+
   if (recs.length > 0) {
     html += '<h2>Rekommendationer</h2>';
     for (var j = 0; j < recs.length; j++) {
@@ -858,8 +1076,8 @@ function exportResultWord() {
     }
   }
 
-  html += '<hr style="margin-top:2em;"><p style="font-size:9pt;color:#64748b;">Genererad av Jitsi-kollen &mdash; Ett verktyg från Sambruk för meet.sambruk.nu</p>';
+  html += '<hr style="margin-top:2em;"><p style="font-size:9pt;color:#64748b;">Genererad av Videomötes-kollen &mdash; Ett verktyg från Sambruk</p>';
   html += '</body></html>';
 
-  downloadText('jitsi-kollen-rapport.doc', html, 'application/msword');
+  downloadText('videomotes-kollen-rapport.doc', html, 'application/msword');
 }
